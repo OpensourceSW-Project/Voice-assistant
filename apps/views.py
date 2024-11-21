@@ -189,6 +189,22 @@ class ReviewInfo(APIView):
 
         return Response({"message": "Review added successfully"}, status=status.HTTP_201_CREATED)
 
+    def delete(self, request, format=None):
+        review_id = request.data.get('review_id')
+
+        if not review_id:
+            return Response({"error": "review_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            review = Review.objects.get(id=review_id)
+        except Review.DoesNotExist:
+            return Response({"error": "Review not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # 리뷰 삭제
+        review.delete()
+
+        return Response({"message": "Review deleted successfully"}, status=status.HTTP_200_OK)
+
 
 class LikeAccommodation(APIView):
     def get(self, request, format=None):
