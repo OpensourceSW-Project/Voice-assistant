@@ -25,16 +25,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 import os, environ
 
-# env = environ.Env()
-#
-# environ.Env.read_env()
+env = environ.Env()
 
-SECRET_KEY = 'django-insecure-&$uhwut3n#)t17@*!7b7@^rguz6^(q!+4u&^pr+geuah_hfy8c'
-# SECRET_KEY = env("SECRET_KEY")
+environ.Env.read_env()
+
+SECRET_KEY = env("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = env("DEBUG")
-DEBUG = True
+DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = ['*']
 
@@ -135,28 +133,14 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': env("NAME"),
-#         'USER': env("USER"),
-#         'PASSWORD': env("PASSWORD"),
-#         'HOST': env("HOST"),
-#         'PORT': env("PORT"),
-#     }
-# }
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'item_is',
-        'USER': 'root',
-        'PASSWORD': 'ydk292811',
-        'HOST': 'localhost',
-        'PORT': '3306',
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-        },
+        'NAME': env("NAME"),
+        'USER': env("USER"),
+        'PASSWORD': env("PASSWORD"),
+        'HOST': env("HOST"),
+        'PORT': env("PORT"),
     }
 }
 
