@@ -6,12 +6,11 @@ from apps.serializers import ReservationSerializer, AccommodationSerializer, Rev
 from apps.models import Reservation, Accommodation, User, Review
 from django.core.paginator import Paginator, EmptyPage
 from datetime import datetime
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
-from geopy.distance import geodesic
-from sklearn.preprocessing import MinMaxScaler
+# from transformers import AutoTokenizer, AutoModelForSequenceClassification
+# import torch
+# from geopy.distance import geodesic
+# from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
-
 
 
 # 숙소 정보 조회 GET(완)
@@ -252,40 +251,31 @@ class LikeAccommodation(APIView):
 #     def post(self, request):
 #         """
 #         숙소 추천 API
-#         POST 요청으로 사용자의 위치와 원하는 조건을 전달받아 추천 숙소 리스트 반환
+#         POST 요청으로 사용자의 위치와 조건을 받아 추천 숙소를 반환합니다.
 #         """
 #         try:
 #             # 사용자 요청 데이터
 #             user_location = request.data.get('user_location')  # [latitude, longitude]
 #             max_distance = request.data.get('max_distance', 50)  # 최대 거리 (기본값 50km)
-#             user_reviews = request.data.get('reviews', [])  # 새 리뷰 리스트
 #
 #             if not user_location:
 #                 return Response({"error": "user_location is required"}, status=status.HTTP_400_BAD_REQUEST)
 #
-#             # 새 리뷰가 있다면 모델을 사용해 감성 점수 계산
-#             if user_reviews:
-#                 review_texts = [review['text'] for review in user_reviews]
-#                 scores = self.predict_sentiment_score_batch(review_texts)
-#
-#                 # 새 리뷰에 점수 추가
-#                 for review, score in zip(user_reviews, scores):
-#                     review['predicted_score'] = score
-#
-#             # 데이터베이스에서 숙소 및 리뷰 정보 가져오기
+#             # 숙소 데이터 가져오기
 #             accommodations = Accommodation.objects.all().values(
-#                 "id", "name", "address", "price", "latitude", "longitude", "ranks"
+#                 "id", "name", "price", "latitude", "longitude", "ranks"
 #             )
 #             reviews = Review.objects.values("accommodation_id", "rating")
 #
-#             # 숙소 데이터를 DataFrame으로 변환
+#             # 숙소와 리뷰를 DataFrame으로 변환
 #             accommodation_df = pd.DataFrame(list(accommodations))
 #             review_df = pd.DataFrame(list(reviews))
 #
-#             # 숙소별 평균 리뷰 점수 계산
+#             # 평균 리뷰 점수 추가
 #             if not review_df.empty:
 #                 review_avg = review_df.groupby("accommodation_id")["rating"].mean().reset_index()
-#                 accommodation_df = accommodation_df.merge(review_avg, left_on="id", right_on="accommodation_id", how="left")
+#                 accommodation_df = accommodation_df.merge(review_avg, left_on="id", right_on="accommodation_id",
+#                                                           how="left")
 #                 accommodation_df.rename(columns={"rating": "avg_review_score"}, inplace=True)
 #             else:
 #                 accommodation_df["avg_review_score"] = 0.0
@@ -299,47 +289,29 @@ class LikeAccommodation(APIView):
 #             accommodation_df = accommodation_df[accommodation_df["distance"] <= max_distance]
 #
 #             if accommodation_df.empty:
-#                 return Response({"message": "No accommodations found within the specified distance."}, status=status.HTTP_404_NOT_FOUND)
+#                 return Response({"message": "No accommodations found within the specified distance."},
+#                                 status=status.HTTP_404_NOT_FOUND)
 #
-#             # 정규화 및 추천 점수 계산
+#             # 정규화 및 점수 계산
 #             scaler = MinMaxScaler()
-#             accommodation_df["distance_score"] = scaler.fit_transform(1 / (accommodation_df["distance"] + 1).values.reshape(-1, 1))
-#             accommodation_df["price_score"] = scaler.fit_transform(1 / (accommodation_df["price"] + 1).values.reshape(-1, 1))
+#             accommodation_df["distance_score"] = scaler.fit_transform(
+#                 1 / (accommodation_df["distance"] + 1).values.reshape(-1, 1))
+#             accommodation_df["price_score"] = scaler.fit_transform(
+#                 1 / (accommodation_df["price"] + 1).values.reshape(-1, 1))
 #
 #             accommodation_df["final_score"] = (
-#                 0.3 * accommodation_df["distance_score"] +
-#                 0.3 * accommodation_df["ranks"] +
-#                 0.2 * accommodation_df["avg_review_score"] +
-#                 0.2 * accommodation_df["price_score"]
+#                     0.3 * accommodation_df["distance_score"] +
+#                     0.3 * accommodation_df["ranks"] +
+#                     0.2 * accommodation_df["avg_review_score"] +
+#                     0.2 * accommodation_df["price_score"]
 #             )
 #
-#             # 최종 점수 정규화
-#             accommodation_df["final_score"] = scaler.fit_transform(accommodation_df["final_score"].values.reshape(-1, 1))
-#             accommodation_df["final_score"] = accommodation_df["final_score"] * 4 + 1
-#
-#             # 추천 호텔 상위 10개
+#             # 상위 10개 추천
 #             recommended_hotels = accommodation_df.sort_values("final_score", ascending=False).head(10)
-#             result = recommended_hotels[["name", "final_score", "distance", "ranks", "avg_review_score"]].to_dict(orient="records")
+#             result = recommended_hotels[["name", "final_score", "distance", "ranks", "avg_review_score"]].to_dict(
+#                 orient="records")
 #
 #             return Response({"recommended_hotels": result}, status=status.HTTP_200_OK)
 #
 #         except Exception as e:
 #             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-#
-#     def predict_sentiment_score_batch(self, review_texts, batch_size=64):
-#         """
-#         배치 단위로 감성 분석 수행
-#         """
-#         all_scores = []
-#         for i in range(0, len(review_texts), batch_size):
-#             batch_texts = review_texts[i:i + batch_size]
-#             inputs = tokenizer(batch_texts, padding=True, truncation=True, return_tensors="pt", max_length=512).to(device)
-#
-#             with torch.no_grad():
-#                 outputs = model(**inputs)
-#                 predictions = torch.softmax(outputs.logits, dim=-1)
-#                 scores = predictions[:, 1].cpu().numpy()  # 긍정 확률
-#
-#             all_scores.extend(scores)
-#
-#         return all_scores
