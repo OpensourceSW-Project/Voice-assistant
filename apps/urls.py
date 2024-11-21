@@ -17,11 +17,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from .views import LikeAccommodation, AccommodationInfo
+from .views import LikeAccommodation, AccommodationInfo, ReviewInfo
 from .csv_to_db import LoadCSVToDBView
 
 urlpatterns = [
     path('load-csv/', LoadCSVToDBView.as_view(), name='load_csv_to_db'),
     path('like-accommodation/', LikeAccommodation.as_view(), name='like_accommodation'),
-    path('accommodation-info/', AccommodationInfo.as_view(), name="user_reservation_info")
+    path('accommodation-info/', AccommodationInfo.as_view(), name="user_reservation_info"),
+    path('review-info/', ReviewInfo.as_view(), name="review_info")
 ]

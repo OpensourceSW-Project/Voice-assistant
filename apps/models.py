@@ -33,18 +33,29 @@ class User(AbstractBaseUser):
 class Accommodation(models.Model):
     id = models.BigAutoField(primary_key=True) # PK
     name = models.CharField(max_length=100, null=False) # 숙소명
-    number = models.CharField(max_length=20, null=False) # 숙소 전화번호
+    number = models.CharField(max_length=20, default='000-0000-0000') # 숙소 전화번호
     address = models.CharField(max_length=100, null=False) # 주소
-    no_of_rooms = models.CharField(max_length=50, null=False) # 객실 수
-    urls = models.CharField(max_length=100) # 홈페이지 주소
+    # no_of_rooms = models.CharField(max_length=50, null=False) # 객실 수
+    # urls = models.CharField(max_length=100) # 홈페이지 주소
     price = models.IntegerField(default=0) # 객실 가격
     like = models.ManyToManyField(User, related_name='likes', blank=True)  # 좋아요 기능
-    ranks = models.CharField(max_length=5, default='0.0') # 별점
+    ranks = models.DecimalField(max_digits=3, decimal_places=1, default=0.0)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+
+class Review(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    accommodation = models.ForeignKey(Accommodation, on_delete=models.CASCADE, related_name="reviews")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    content = models.TextField()
+    rating = models.DecimalField(max_digits=2, decimal_places=1, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 class Reservation(models.Model):
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # 예약한 사용자
-    accomodation = models.ForeignKey(Accommodation, on_delete=models.CASCADE)
+    accommodation = models.ForeignKey(Accommodation, on_delete=models.CASCADE)
     check_in_date = models.DateField() # 체크인 날짜
     check_out_date = models.DateField() # 체크아웃 날짜
     status = models.BooleanField() # 예약 유무
