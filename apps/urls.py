@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path
 
 from .views import LikeAccommodation, AccommodationInfo, ReviewInfo
-# from .csv_to_db import LoadCSVToDBView
+from .csv_to_db import LoadCSVToDBView
 
 urlpatterns = [
     path('load-csv/', LoadCSVToDBView.as_view(), name='load_csv_to_db'),
