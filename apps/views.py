@@ -6,10 +6,10 @@ from apps.serializers import ReservationSerializer, AccommodationSerializer, Rev
 from apps.models import Reservation, Accommodation, User, Review
 from django.core.paginator import Paginator, EmptyPage
 from datetime import datetime
-# from transformers import AutoTokenizer, AutoModelForSequenceClassification
-# import torch
-# from geopy.distance import geodesic
-# from sklearn.preprocessing import MinMaxScaler
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+from geopy.distance import geodesic
+from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
 
 
@@ -83,10 +83,10 @@ import pandas as pd
 #             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# MODEL_PATH = ''
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH).to(device)
-# tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+MODEL_PATH = '/home/ubuntu/project/OpenSWAIModel/Voice-assistant/finetuned_model_v4'
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH).to(device)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 
 
 class AccommodationInfo(APIView):
@@ -263,71 +263,71 @@ class LikeAccommodation(APIView):
 
 
 # GPT 사용, 프롬포트 : AI코드와 내 백엔드 코드를 합쳐줘
-# class AISet(APIView):
-#     def post(self, request):
-#         """
-#         숙소 추천 API
-#         POST 요청으로 사용자의 위치와 조건을 받아 추천 숙소를 반환합니다.
-#         """
-#         try:
-#             # 사용자 요청 데이터
-#             user_location = request.data.get('user_location')  # [latitude, longitude]
-#             max_distance = request.data.get('max_distance', 50)  # 최대 거리 (기본값 50km)
-#
-#             if not user_location:
-#                 return Response({"error": "user_location is required"}, status=status.HTTP_400_BAD_REQUEST)
-#
-#             # 숙소 데이터 가져오기
-#             accommodations = Accommodation.objects.all().values(
-#                 "id", "name", "price", "latitude", "longitude", "ranks"
-#             )
-#             reviews = Review.objects.values("accommodation_id", "rating")
-#
-#             # 숙소와 리뷰를 DataFrame으로 변환
-#             accommodation_df = pd.DataFrame(list(accommodations))
-#             review_df = pd.DataFrame(list(reviews))
-#
-#             # 평균 리뷰 점수 추가
-#             if not review_df.empty:
-#                 review_avg = review_df.groupby("accommodation_id")["rating"].mean().reset_index()
-#                 accommodation_df = accommodation_df.merge(review_avg, left_on="id", right_on="accommodation_id",
-#                                                           how="left")
-#                 accommodation_df.rename(columns={"rating": "avg_review_score"}, inplace=True)
-#             else:
-#                 accommodation_df["avg_review_score"] = 0.0
-#
-#             # 거리 계산
-#             accommodation_df["distance"] = accommodation_df.apply(
-#                 lambda row: geodesic(user_location, (row["latitude"], row["longitude"])).km, axis=1
-#             )
-#
-#             # 거리 필터링
-#             accommodation_df = accommodation_df[accommodation_df["distance"] <= max_distance]
-#
-#             if accommodation_df.empty:
-#                 return Response({"message": "No accommodations found within the specified distance."},
-#                                 status=status.HTTP_404_NOT_FOUND)
-#
-#             # 정규화 및 점수 계산
-#             scaler = MinMaxScaler()
-#             accommodation_df["distance_score"] = scaler.fit_transform(
-#                 1 / (accommodation_df["distance"] + 1).values.reshape(-1, 1))
-#             accommodation_df["price_score"] = scaler.fit_transform(
-#                 1 / (accommodation_df["price"] + 1).values.reshape(-1, 1))
-#
-#             accommodation_df["final_score"] = (
-#                     0.3 * accommodation_df["distance_score"] +
-#                     0.3 * accommodation_df["ranks"] +
-#                     0.2 * accommodation_df["avg_review_score"] +
-#                     0.2 * accommodation_df["price_score"]
-#             )
-#
-#             # 상위 10개 추천
-#             recommended_hotels = accommodation_df.sort_values("final_score", ascending=False).head(10)
-#             result = recommended_hotels[["name", "final_score", "distance", "ranks", "avg_review_score"]].to_dict(
-#                 orient="records")
-#
-#             return Response({"recommended_hotels": result}, status=status.HTTP_200_OK)
-#
-#         except Exception as e:
-#             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+class AISet(APIView):
+    def post(self, request):
+        """
+        숙소 추천 API
+        POST 요청으로 사용자의 위치와 조건을 받아 추천 숙소를 반환합니다.
+        """
+        try:
+            # 사용자 요청 데이터
+            user_location = request.data.get('user_location')  # [latitude, longitude]
+            max_distance = request.data.get('max_distance', 50)  # 최대 거리 (기본값 50km)
+
+            if not user_location:
+                return Response({"error": "user_location is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 숙소 데이터 가져오기
+            accommodations = Accommodation.objects.all().values(
+                "id", "name", "price", "latitude", "longitude", "ranks"
+            )
+            reviews = Review.objects.values("accommodation_id", "rating")
+
+            # 숙소와 리뷰를 DataFrame으로 변환
+            accommodation_df = pd.DataFrame(list(accommodations))
+            review_df = pd.DataFrame(list(reviews))
+
+            # 평균 리뷰 점수 추가
+            if not review_df.empty:
+                review_avg = review_df.groupby("accommodation_id")["rating"].mean().reset_index()
+                accommodation_df = accommodation_df.merge(review_avg, left_on="id", right_on="accommodation_id",
+                                                           how="left")
+                accommodation_df.rename(columns={"rating": "avg_review_score"}, inplace=True)
+            else:
+                accommodation_df["avg_review_score"] = 0.0
+
+            # 거리 계산
+            accommodation_df["distance"] = accommodation_df.apply(
+                lambda row: geodesic(user_location, (row["latitude"], row["longitude"])).km, axis=1
+            )
+
+            # 거리 필터링
+            accommodation_df = accommodation_df[accommodation_df["distance"] <= max_distance]
+
+            if accommodation_df.empty:
+                return Response({"message": "No accommodations found within the specified distance."},
+                                 status=status.HTTP_404_NOT_FOUND)
+
+            # 정규화 및 점수 계산
+            scaler = MinMaxScaler()
+            accommodation_df["distance_score"] = scaler.fit_transform(
+                1 / (accommodation_df["distance"] + 1).values.reshape(-1, 1))
+            accommodation_df["price_score"] = scaler.fit_transform(
+                1 / (accommodation_df["price"] + 1).values.reshape(-1, 1))
+
+            accommodation_df["final_score"] = (
+                    0.3 * accommodation_df["distance_score"] +
+                    0.3 * accommodation_df["ranks"] +
+                    0.2 * accommodation_df["avg_review_score"] +
+                    0.2 * accommodation_df["price_score"]
+            )
+
+            # 상위 10개 추천
+            recommended_hotels = accommodation_df.sort_values("final_score", ascending=False).head(10)
+            result = recommended_hotels[["name", "final_score", "distance", "ranks", "avg_review_score"]].to_dict(
+                orient="records")
+
+            return Response({"recommended_hotels": result}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

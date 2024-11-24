@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from django.db.models import Avg
 from rest_framework.response import Response
 from rest_framework import status
-from modles import Accommodation, Review
+from .models import Accommodation, Review
 from datetime import datetime
 import os
 from django.conf import settings
@@ -15,56 +15,69 @@ class LoadCSVToDBView(APIView):
     def get(self, request):
         try:
             df = pd.read_csv(csv_file_path, encoding='utf-8')
+            existing_accommodations = {
+                    acc.name: acc for acc in Accommodation.objects.all()
+            }
 
             accommodations = []
             reviews = []      
+            ranks_map = {}
 
-            for index, row in df.iterrows():
-                price = row['price']
-                if pd.isna(price) or price == "가격 정보 없음":
-                    price = 0
-                elif isinstance(price, str):
-                    price = int(price.replace(',', ''))
+            for row in df.itertuples(index=False):
+                # price = 0 if pd.isna(row.price) or row.price == "가격 정보 없음" else int(str(row.price).replace(',', '')
+
+                if row.hotel in existing_accommodations:
+                    accommodation = existing_accommodations[row.hotel]                  
                 else:
-                    price = int(price)
+                    accommodation, created = Accommodation(
+                            name=row.hotel,
+                            address=row.address,
+                            price=price,
+                            ranks= 0.0,
+                            )
+                    accommodations.append(accommodation)
+                    existing_accommodations[row.hotel] = accommodation
+                                                                                                            
 
-                 accommodation, created = Accommodation.objects.get_or_create(
-                                             name=row['hotel'],
-                                             defaults={
-                                             'address': row['address'],
-                                             'price': price,
-                                             'ranks': 0.0,
-                                             }
-                                        )
+                reviews.append(Review(
+                    accommodation=accommodation,
+                    content=row.review,
+                    rating=float(row.star),
+                    created_at=datetime.now()
+                    ))
+                
+                if accommodation.id not in ranks_map:
+                    ranks_map[accommodation.id] = []
+                ranks_map[accommodation.id].append(row.star)
 
-                 reviews.append(Review(
-                     accommodation=accommodation,
-                     content=row['review'],
-                     rating=float(row['star']),
-                     created_at=datetime.now()
-                     ))
-
-                 avg_rank = Review.objects.filter(accommodation=accommodation).aggregate(Avg('rating'))['rating__avg']
-                 accommodation.ranks = round(avg_rank, 2) if avg_rank else 0.0
-                 accommodations.append(accommodation)
-
-                 if len(reviews) >= 100:
-                     with transaction.atomic():
-                         Accommodation.objects.bulk_update(accommodations, ['ranks'])
-                         Review.objects.bulk_create(reviews)
+                if len(reviews) >= 100:
+                    self._save_batch(accommodations, reviews)
                     reviews.clear()
                     accommodations.clear()
 
             if reviews:
-                with transaction.atomic():
-                    Accommodation.objects.bulk_update(accommodations, ['ranks'])
-                    Review.objects.bulk_create(reviews)
+                self._save_batch(accommodations, reviews)
+
+            self._update_accommodation_ranks(ranks_map)
 
             return Response({"message": "CSV 데이터가 성공적으로 데이터베이스에 저장되었습니다."}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    def _save_batch(self, accommodations, reviews):
+        with transaction.atomic():
+            Accommodation.objects.bulk_create(accommodations, ignore_conflicts=True)
+            Review.objects.bulk_create(reviews)
+
+    def _update_accommodation_ranks(self, ranks_map):
+        accommodations_to_update = []
+
+        for acc_id, ratings in ranks_map.items():
+            avg_rank = round(sum(ratings) / len(ratings), 2) if ratings else 0.0
+            accommodations_to_update.append(Accommodation(id=acc_id, ranks=avg_rank))
+
+        Accommodation.objects.bulk_update(accommodations_to_update, ['ranks'])
 
 
 

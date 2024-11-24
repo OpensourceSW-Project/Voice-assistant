@@ -9,7 +9,8 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
-from os import environ
+import environ
+import os
 from pathlib import Path
 
 from tutorial.settings import SECRET_KEY, DATABASES
@@ -23,11 +24,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 
-import os, environ
-
 env = environ.Env(DEBUG=(bool, False))
 
-environ.Env.read_env(os.path.join(BASE_DIR, 'env'))
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = env("SECRET_KEY")
 
@@ -133,18 +132,19 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': env("NAME"),
-        'USER': env("USER"),
+        'NAME': env('NAME'),
+        'USER': env('USER'),
         'PASSWORD': env("PASSWORD"),
         'HOST': env("HOST"),
         'PORT': env("PORT"),
         'OPTIONS':{
             'charset': 'utf8mb4'
         },
-    }
+   }
 }
 
 # Password validation
