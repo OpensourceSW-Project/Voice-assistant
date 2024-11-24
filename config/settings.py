@@ -15,8 +15,8 @@ from pathlib import Path
 from tutorial.settings import SECRET_KEY, DATABASES
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
-
+# BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -25,9 +25,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 import os, environ
 
-env = environ.Env()
+env = environ.Env(DEBUG=(bool, False))
 
-environ.Env.read_env()
+environ.Env.read_env(os.path.join(BASE_DIR, 'env'))
 
 SECRET_KEY = env("SECRET_KEY")
 
