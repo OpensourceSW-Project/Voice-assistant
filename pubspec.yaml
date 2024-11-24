@@ -1,0 +1,43 @@
+name: swaiproject
+description: A Flutter project for voice assistance.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_tts: ^4.0.2
+  cupertino_icons: ^1.0.8
+  googleapis: ^13.2.0
+  googleapis_auth: ^1.0.0
+  speech_to_text:
+    path: ./packages/speech_to_text
+  http: ^1.2.2
+  url_launcher: ^6.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"  # 아이콘 이미지 파일 경로
+
+
+flutter:
+  assets:
+    - assets/fonts/
+  uses-material-design: true
+  fonts:
+    - family: NanumGothic
+      fonts:
+        - asset: assets/fonts/NanumGothic-Regular.ttf
+        - asset: assets/fonts/NanumGothic-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/NanumGothic-ExtraBold.ttf
