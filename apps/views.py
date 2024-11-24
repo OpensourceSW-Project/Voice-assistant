@@ -298,8 +298,15 @@ class AISet(APIView):
 
             # 거리 계산
             accommodation_df["distance"] = accommodation_df.apply(
-                lambda row: geodesic(user_location, (row["latitude"], row["longitude"])).km, axis=1
+                lambda row: geodesic((float(row['latitude']), float(row['longitude'])),
+                                     (float(user_location[0]), float(user_location[1]))).km,
+                axis=1
             )
+
+            decimal_columns = ['price', 'distance', 'ranks', 'avg_review_score']
+            for col in decimal_columns:
+                if col in accommodation_df.columns:
+                    accommodation_df[col] = accommodation_df[col].astype(float)
 
             # 거리 필터링
             accommodation_df = accommodation_df[accommodation_df["distance"] <= max_distance]

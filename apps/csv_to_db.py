@@ -14,53 +14,50 @@ csv_file_path = os.path.join(settings.BASE_DIR, 'hotels_with_coordinates.csv')
 class LoadCSVToDBView(APIView):
     def get(self, request):
         try:
-            df = pd.read_csv(csv_file_path, encoding='utf-8')
-            existing_accommodations = {
+            for chunk in pd.read_csv(csv_file_path, encoding='utf-8', chunksize=1000):
+                reviews = []
+                ranks_map = {}
+                existing_accommodations = {
                     acc.name: acc for acc in Accommodation.objects.all()
-            }
+                }
 
-            accommodations = []
-            reviews = []      
-            ranks_map = {}
 
-            for row in df.itertuples(index=False):
-                # price = 0 if pd.isna(row.price) or row.price == "가격 정보 없음" else int(str(row.price).replace(',', '')
+                for row in chunk.itertuples(index=False):
+                    price = 0 if pd.isna(row.price) or row.price == "가격 정보 없음" else int(str(row.price).replace(',', ''))
 
-                if row.hotel in existing_accommodations:
-                    accommodation = existing_accommodations[row.hotel]                  
-                else:
-                    accommodation, created = Accommodation(
-                            name=row.hotel,
-                            address=row.address,
-                            price=price,
-                            ranks= 0.0,
-                            )
-                    accommodations.append(accommodation)
-                    existing_accommodations[row.hotel] = accommodation
+                    if row.hotel in existing_accommodations:
+                        accommodation = existing_accommodations[row.hotel]                  
+                    else:
+                        accommodation = Accommodation.objects.create(
+                                name=row.hotel,
+                                address=row.address,
+                                price=price,
+                                latitude=row.latitude,
+                                longitude=row.longitude,
+                                ranks= 0.0,
+                                )
+                        existing_accommodations[row.hotel] = accommodation
                                                                                                             
 
-                reviews.append(Review(
-                    accommodation=accommodation,
-                    content=row.review,
-                    rating=float(row.star),
-                    created_at=datetime.now()
-                    ))
+                    reviews.append(Review(
+                        accommodation=accommodation,
+                        content=row.review,
+                        rating=float(row.star),
+                        created_at=datetime.now()
+                        ))
                 
-                if accommodation.id not in ranks_map:
-                    ranks_map[accommodation.id] = []
-                ranks_map[accommodation.id].append(row.star)
+                    if accommodation.id not in ranks_map:
+                        ranks_map[accommodation.id] = []
+                    ranks_map[accommodation.id].append(row.star)
 
-                if len(reviews) >= 100:
-                    self._save_batch(accommodations, reviews)
-                    reviews.clear()
-                    accommodations.clear()
+                    if len(reviews) >= 100:
+                        self._save_batch([], reviews)
+                        reviews.clear()
 
-            if reviews:
-                self._save_batch(accommodations, reviews)
 
-            self._update_accommodation_ranks(ranks_map)
+                self._update_accommodation_ranks(ranks_map)
 
-            return Response({"message": "CSV 데이터가 성공적으로 데이터베이스에 저장되었습니다."}, status=status.HTTP_200_OK)
+                return Response({"message": "CSV 데이터가 성공적으로 데이터베이스에 저장되었습니다."}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
