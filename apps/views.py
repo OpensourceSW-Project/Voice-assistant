@@ -12,81 +12,81 @@ from geopy.distance import geodesic
 from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
 
-
-# 숙소 정보 조회 GET(완)
-
-# 좋아요 기능 GET, POST, DELETE(완)
-
-# 추후
-# 사용자 예약 정보 조회, 생성
-# POST Request
-# user_id, check_in_date, check_out_date, status, price, create_at, updated_at, ranks
-# GET Response
-# reservation, user_id, check_in_date, check_out_date, status, price, create_at, updated_at, ranks
-
-# AI 연결
-
-
-# class UserReservationInfo(APIView):
-#     # 유저 예약 정보 조회
-#     def get(self, request, format=None):
-#         user_id = request.query_params.get('user_id')
-#
-#         if not user_id: # user_id를 query_params에 안넣었을 때
-#             return Response({"error": "user_id required"}, status=status.HTTP_400_BAD_REQUEST)
-#
-#         reservations = Reservation.objects.filter(user_id=user_id)
-#
-#         if not reservations.exists(): # user가 없을 때
-#             return Response({"message": "not found user"}, status=status.HTTP_404_NOT_FOUND)
-#
-#         serializer = ReservationSerializer(reservations, many=True)
-#         return Response(serializer.data, status=status.HTTP_200_OK)
-#
-#     # 유저 예약 생성
-#     def post(self, request):
-#         user_id = request.data.get('user_id')
-#         accommodation_name = request.data.get('accommodation_name')
-#         check_in_date = request.data.get('check_in_date')
-#         check_out_date = request.data.get('check_out_date')
-#         price = request.data.get('price', 0)
-#
-#         if not user_id or not accommodation_name or not check_in_date or not check_out_date:
-#             return Response({"error": "user_id, accommodation_name, check_in_date, check_out_date required"},
-#                             status=status.HTTP_400_BAD_REQUEST)
-#
-#         try:
-#             user = User.objects.get(id=user_id)
-#             accommodation = Accommodation.objects.get(name=accommodation_name)
-#         except User.DoesNotExist:
-#             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-#         except Accommodation.DoesNotExist:
-#             return Response({"error": "Accommodation not found"}, status=status.HTTP_404_NOT_FOUND)
-#
-#             # 예약 생성
-#         try:
-#             reservation = Reservation.objects.create(
-#                 user=user,
-#                 accomodation=accommodation,
-#                 check_in_date=check_in_date,
-#                 check_out_date=check_out_date,
-#                 status=True,
-#                 price=price,
-#                 create_at=datetime.now().date(),
-#                 updated_at=datetime.now().date(),
-#             )
-#
-#             serializer = ReservationSerializer(reservation)
-#             return Response(serializer.data, status=status.HTTP_201_CREATED)
-#
-#         except Exception as e:
-#             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
 MODEL_PATH = '/home/ubuntu/project/OpenSWAIModel/Voice-assistant/finetuned_model_v4'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH).to(device)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+
+class UserReservationInfo(APIView):
+    # 유저 예약 정보 조회
+    def get(self, request, format=None):
+        user_id = request.query_params.get('user_id')
+
+        if not user_id: # user_id를 query_params에 안넣었을 때
+            return Response({"error": "user_id required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        reservations = Reservation.objects.filter(user_id=user_id)
+
+        if not reservations.exists(): # user가 없을 때
+            return Response({"message": "not found user"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ReservationSerializer(reservations, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+    # 유저 예약 생성
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        accommodation_name = request.data.get('accommodation_name')
+        check_in_date = request.data.get('check_in_date')
+        check_out_date = request.data.get('check_out_date')
+        price = request.data.get('price', 0)
+
+        if not user_id or not accommodation_name or not check_in_date or not check_out_date:
+            return Response({"error": "user_id, accommodation_name, check_in_date, check_out_date required"},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(id=user_id)
+            accommodation = Accommodation.objects.get(name=accommodation_name)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Accommodation.DoesNotExist:
+            return Response({"error": "Accommodation not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            reservation = Reservation.objects.create(
+                user=user,
+                accommodation=accommodation,
+                check_in_date=check_in_date,
+                check_out_date=check_out_date,
+                status=True,
+                price=price,
+                create_at=datetime.now().date(),
+                updated_at=datetime.now().date(),
+            )
+
+            serializer = ReservationSerializer(reservation)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # 유저 예약 삭제
+    def delete(self, request):
+        reservation_id = request.query_params.get('reservation_id')
+
+        if not reservation_id:
+            return Response({"error": "reservation_id required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            reservation = Reservation.objects.get(id=reservation_id)
+            reservation.delete()
+            return Response({"message": "Reservation deleted successfully"}, status=status.HTTP_200_OK)
+        except Reservation.DoesNotExist:
+            return Response({"error": "Reservation not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AccommodationInfo(APIView):

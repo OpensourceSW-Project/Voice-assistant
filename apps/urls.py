@@ -17,7 +17,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from .views import LikeAccommodation, AccommodationInfo, ReviewInfo, AISet
+from .models import Reservation
+from .views import LikeAccommodation, AccommodationInfo, ReviewInfo, AISet, UserReservationInfo
 from .csv_to_db import LoadCSVToDBView
 
 urlpatterns = [
@@ -25,5 +26,6 @@ urlpatterns = [
     path('like-accommodation/', LikeAccommodation.as_view(), name='like_accommodation'),
     path('accommodation-info/', AccommodationInfo.as_view(), name="user_reservation_info"),
     path('review-info/', ReviewInfo.as_view(), name="review_info"),
-    path('ai-response/', AISet.as_view(), name='AI')
+    path('ai-response/', AISet.as_view(), name='AI'),
+    path('reservation-info', UserReservationInfo.as_view(), name='reservation')
 ]
