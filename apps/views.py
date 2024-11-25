@@ -355,8 +355,15 @@ class AISet(APIView):
 
             # 상위 10개 추천
             recommended_hotels = accommodation_df.sort_values("final_score", ascending=False).head(10)
+            hotel_names = recommended_hotels["name"].tolist()
+            hotels = Accommodation.objects.filter(name__in=hotel_names)
 
-            serializer = AccommodationSerializer(recommended_hotels.to_dict(orient='records'), many=True)
+            if not hotels.exists():
+                return Response({"message": "no found recommended hotels."},
+                                status=status.HTTP_404_NOT_FOUND)
+
+            serializer = AccommodationSerializer(hotels, many=True)
+
 
             return Response({"recommended_hotels": serializer.data}, status=status.HTTP_200_OK)
 
