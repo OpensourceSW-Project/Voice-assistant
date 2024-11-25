@@ -364,8 +364,9 @@ class AISet(APIView):
 
             serializer = AccommodationSerializer(hotels, many=True)
 
-
-            return Response({"recommended_hotels": serializer.data}, status=status.HTTP_200_OK)
+            response = Response({"recommended_hotels": serializer.data}, status=status.HTTP_200_OK)
+            response['Content-Type'] = 'application/json; charset=utf-8'
+            return response
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
