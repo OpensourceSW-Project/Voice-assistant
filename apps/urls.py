@@ -27,5 +27,5 @@ urlpatterns = [
     path('accommodation-info/', AccommodationInfo.as_view(), name="user_reservation_info"),
     path('review-info/', ReviewInfo.as_view(), name="review_info"),
     path('ai-response/', AISet.as_view(), name='AI'),
-    path('reservation-info', UserReservationInfo.as_view(), name='reservation')
+    path('reservation-info/', UserReservationInfo.as_view(), name='reservation')
 ]
