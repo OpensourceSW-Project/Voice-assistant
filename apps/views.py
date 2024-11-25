@@ -271,15 +271,22 @@ class AISet(APIView):
         """
         try:
             # 사용자 요청 데이터
-            voice_text = request.data.get('voice_text')
+            voice_text = request.data.get('voice_text')  # 음성 텍스트 데이터
             user_location = request.data.get('user_location')  # [latitude, longitude]
             max_distance = request.data.get('max_distance', 50)  # 최대 거리 (기본값 50km)
 
-            if voice_text:
+            # 1. user_location이 제공된 경우: 바로 사용
+            if user_location:
+                user_location = tuple(map(float, user_location))  # 문자열 배열을 float 튜플로 변환
+
+            # 2. user_location이 없고 voice_text가 제공된 경우: 키워드로 위치 추정
+            elif voice_text:
                 location_keyword = self.extract_location(voice_text)
-                if not user_location and location_keyword:
-                    # 음성 텍스트에서 키워드를 통해 위치 추정
-                    user_location = self.get_location_from_keyword(location_keyword)
+                user_location = self.get_location_from_keyword(location_keyword)
+
+            # 3. 위치 정보가 없는 경우 기본 위치 설정 (예: 대전 중심 좌표)
+            if not user_location:
+                user_location = (36.3504, 127.3845)  # 대전 중심 좌표 예시
 
             # 기본 위치 설정 (위치가 없을 경우)
             if not user_location:
