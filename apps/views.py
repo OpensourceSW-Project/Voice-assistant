@@ -271,11 +271,20 @@ class AISet(APIView):
         """
         try:
             # 사용자 요청 데이터
+            voice_text = request.data.get('voice_text')
             user_location = request.data.get('user_location')  # [latitude, longitude]
             max_distance = request.data.get('max_distance', 50)  # 최대 거리 (기본값 50km)
 
+            if voice_text:
+                location_keyword = self.extract_location(voice_text)
+                if not user_location and location_keyword:
+                    # 음성 텍스트에서 키워드를 통해 위치 추정
+                    user_location = self.get_location_from_keyword(location_keyword)
+
+            # 기본 위치 설정 (위치가 없을 경우)
             if not user_location:
-                return Response({"error": "user_location is required"}, status=status.HTTP_400_BAD_REQUEST)
+                # 대전 중심 좌표 예시
+                user_location = (36.3504, 127.3845)
 
             # 숙소 데이터 가져오기
             accommodations = Accommodation.objects.all().values(
@@ -291,7 +300,7 @@ class AISet(APIView):
             if not review_df.empty:
                 review_avg = review_df.groupby("accommodation_id")["rating"].mean().reset_index()
                 accommodation_df = accommodation_df.merge(review_avg, left_on="id", right_on="accommodation_id",
-                                                           how="left")
+                                                          how="left")
                 accommodation_df.rename(columns={"rating": "avg_review_score"}, inplace=True)
             else:
                 accommodation_df["avg_review_score"] = 0.0
@@ -313,7 +322,7 @@ class AISet(APIView):
 
             if accommodation_df.empty:
                 return Response({"message": "No accommodations found within the specified distance."},
-                                 status=status.HTTP_404_NOT_FOUND)
+                                status=status.HTTP_404_NOT_FOUND)
 
             # 정규화 및 점수 계산
             scaler = MinMaxScaler()
@@ -338,3 +347,28 @@ class AISet(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def extract_location(self, voice_text):
+        """
+        음성 텍스트에서 키워드(지역명) 추출
+        """
+        # 간단한 키워드 매칭 (예: 대전 지역 기반 키워드)
+        keywords = ['유성구', '서구', '대덕구', '중구', '동구']
+        for keyword in keywords:
+            if keyword in voice_text:
+                return keyword
+        return None
+
+    def get_location_from_keyword(self, keyword):
+        """
+        키워드로부터 위경도 좌표 반환
+        """
+        # 지역 데이터 매핑
+        location_mapping = {
+            '유성구': (36.3622, 127.3567),
+            '서구': (36.3468, 127.3845),
+            '대덕구': (36.3730, 127.4142),
+            '중구': (36.3010, 127.4195),
+            '동구': (36.3356, 127.4548),
+        }
+        return location_mapping.get(keyword)
