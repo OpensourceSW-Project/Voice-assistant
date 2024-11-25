@@ -73,17 +73,26 @@ class UserReservationInfo(APIView):
 
         # 유저 예약 삭제
     def delete(self, request):
-        reservation_id = request.query_params.get('reservation_id')
+        user_id = request.data.get('user_id')  # 사용자 ID
+        accommodation_name = request.data.get('accommodation_name')  # 숙소 이름
 
-        if not reservation_id:
-            return Response({"error": "reservation_id required"}, status=status.HTTP_400_BAD_REQUEST)
+        if not user_id or not accommodation_name:
+            return Response(
+                {"error": "user_id and accommodation_name are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
-            reservation = Reservation.objects.get(id=reservation_id)
+            accommodation = Accommodation.objects.get(name=accommodation_name)
+            reservation = Reservation.objects.filter(user_id=user_id, accommodation=accommodation).first()
+            if not reservation:
+                return Response({"error": "Reservation not found"}, status=status.HTTP_404_NOT_FOUND)
+
             reservation.delete()
             return Response({"message": "Reservation deleted successfully"}, status=status.HTTP_200_OK)
-        except Reservation.DoesNotExist:
-            return Response({"error": "Reservation not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        except Accommodation.DoesNotExist:
+            return Response({"error": "Accommodation not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
