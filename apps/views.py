@@ -355,10 +355,10 @@ class AISet(APIView):
 
             # 상위 10개 추천
             recommended_hotels = accommodation_df.sort_values("final_score", ascending=False).head(10)
-            result = recommended_hotels[["name", "final_score", "distance", "ranks", "avg_review_score"]].to_dict(
-                orient="records")
 
-            return Response({"recommended_hotels": result}, status=status.HTTP_200_OK)
+            serializer = AccommodationSerializer(recommended_hotels.to_dict(orient='records'), many=True)
+
+            return Response({"recommended_hotels": serializer.data}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

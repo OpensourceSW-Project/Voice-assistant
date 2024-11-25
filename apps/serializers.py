@@ -22,3 +22,13 @@ class LikeAccommodationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Accommodation
         fields = '__all__'
+
+class AccommodationSerializer(serializers.ModelSerializer):
+    avg_review_score = serializers.FloatField(default=0.0)
+    distance = serializers.FloatField()
+    final_score = serializers.FloatField()
+
+    class Meta:
+        model = Accommodation
+        fields = ['id', 'name', 'price', 'latitude', 'longitude', 'ranks', 'avg_review_score', 'distance',
+                  'final_score']
