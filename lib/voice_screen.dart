@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'hotel_all.dart'; // hotel_all.dart 파일 추가
-import 'hotel_d.dart'; // hotel_d.dart 파일 추가
+import 'hotel_ai.dart'; // hotel_ai.dart 파일 추가
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class VoiceScreen extends StatefulWidget {
   const VoiceScreen({super.key});
@@ -51,13 +53,41 @@ class VoiceScreenState extends State<VoiceScreen> {
     setState(() {
       _selectedIndex = index;
     });
+
+    // Hotel 아이콘을 눌렀을 때 hotel_all.dart로 이동
+    if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const HotelAllPage()),
+      );
+    }
   }
 
-  void _navigateToHotelList() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const HotelAllPage()), // hotel_all.dart로 이동
-    );
+  Future<void> _sendVoiceTextToBackend() async {
+    const String apiUrl = 'http://107.23.187.64:8000/api/ai-response/';
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'voice_text': _text}),
+      );
+
+      if (response.statusCode == 200) {
+        // 백엔드 응답이 성공적이면 hotel_ai.dart로 이동
+        final responseData = json.decode(response.body);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HotelAiPage(hotelData: responseData),
+          ),
+        );
+      } else {
+        print('Failed to send request: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error occurred: $e');
+    }
   }
 
   @override
@@ -172,7 +202,7 @@ class VoiceScreenState extends State<VoiceScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        onPressed: _navigateToHotelList, // 검색 버튼 클릭 시 hotel_all.dart로 이동
+                        onPressed: _sendVoiceTextToBackend, // 검색 버튼 동작
                         child: const Text(
                           '검색',
                           style: TextStyle(

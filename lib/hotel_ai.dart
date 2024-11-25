@@ -4,15 +4,16 @@ import 'package:http/http.dart' as http;
 import 'voice_screen.dart'; // VoiceScreen 임포트
 import 'review_screen.dart'; // ReviewScreen 임포트
 
-class HotelAllPage extends StatefulWidget {
-  const HotelAllPage({super.key});
+class HotelAiPage extends StatefulWidget {
+  final dynamic hotelData;
+  const HotelAiPage({super.key, required this.hotelData});
 
   @override
-  State<HotelAllPage> createState() => _HotelAllPageState();
+  State<HotelAiPage> createState() => _HotelAiPageState();
 }
 
-class _HotelAllPageState extends State<HotelAllPage> {
-  int _selectedIndex = 1; // Hotel 아이콘 기본 선택
+class _HotelAiPageState extends State<HotelAiPage> {
+  int _selectedIndex = 4; // Search 아이콘 기본 선택
   bool _isLoading = true;
   List<Hotel> _hotelList = [];
 
@@ -38,13 +39,15 @@ class _HotelAllPageState extends State<HotelAllPage> {
 
   Future<void> fetchHotelData() async {
     try {
-      final response = await http.get(
-        Uri.parse('http://107.23.187.64:8000/api/accommodation-info/'),
+      final response = await http.post(
+        Uri.parse('http://107.23.187.64:8000/api/ai-response/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({}), // 필요하면 요청 바디 추가
       );
 
       if (response.statusCode == 200) {
         List<dynamic> data =
-        jsonDecode(utf8.decode(response.bodyBytes))['accommodations'];
+        jsonDecode(utf8.decode(response.bodyBytes))['recommended_hotels'];
 
         setState(() {
           _hotelList = data.map((json) => Hotel.fromJson(json)).toList();
@@ -69,11 +72,16 @@ class _HotelAllPageState extends State<HotelAllPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          '목록',
-          style: TextStyle(fontFamily: 'NanumGothic'),
+          '추천 숙소',
+          style: TextStyle(
+            fontSize: 18,
+            fontFamily: 'NanumGothic',
+          ),
         ),
         backgroundColor: const Color(0xFFA8C6F1),
+        centerTitle: false,  // 왼쪽 정렬
       ),
+
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Container(
