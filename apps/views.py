@@ -66,8 +66,7 @@ class UserReservationInfo(APIView):
                 updated_at=datetime.now().date(),
             )
 
-            serializer = ReservationSerializer(reservation)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({"message": "Reservation successfully"}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
