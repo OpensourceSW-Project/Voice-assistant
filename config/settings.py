@@ -15,6 +15,8 @@ from pathlib import Path
 
 from tutorial.settings import SECRET_KEY, DATABASES
 
+from apps.views import GMAPS_API_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 # BASE_DIR = Path(__file__).resolve().parent.parent
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -29,6 +31,12 @@ env = environ.Env(DEBUG=(bool, False))
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = env("SECRET_KEY")
+
+GMAPS_API_KEY = env("GMAPS_API_KEY")
+
+NAVER_CLIENT_ID = env("NAVER_CLIENT_ID")
+
+NAVER_CLIENT_SECRET = env("NAVER_CLIENT_SECRET")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")

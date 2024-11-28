@@ -1,8 +1,9 @@
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
+from django.conf import settings
 from django.db.models import Avg
-from apps.serializers import ReservationSerializer, AccommodationSerializer, ReviewSerializer
+from apps.serializers import ReservationSerializer, AccommodationSerializer, ReviewSerializer, HotelRouteResponseSerializer
 from apps.models import Reservation, Accommodation, User, Review
 from django.core.paginator import Paginator, EmptyPage
 from datetime import datetime
@@ -11,11 +12,28 @@ import torch
 from geopy.distance import geodesic
 from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
+import googlemaps
+from konlpy.tag import Okt
+import requests
+import os
 
 MODEL_PATH = '/home/ubuntu/project/OpenSWAIModel/Voice-assistant/finetuned_model_v4'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH).to(device)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+
+GMAPS_API_KEY = settings.GMAPS_API_KEY
+gmaps = googlemaps.Client(key=GMAPS_API_KEY)
+
+NAVER_CLIENT_ID = settings.NAVER_CLIENT_ID
+NAVER_CLIENT_SECRET = settings.NAVER_CLIENT_SECRET
+naver_url = "https://naveropenapi.apigw.ntruss.com/map-direction-15/v1/driving"
+headers = {
+    "X-NCP-APIGW-API-KEY-ID": NAVER_CLIENT_ID,
+    "X-NCP-APIGW-API-KEY": NAVER_CLIENT_SECRET,
+}
+
+okt = Okt()
 
 class UserReservationInfo(APIView):
     # 유저 예약 정보 조회
@@ -278,65 +296,38 @@ class AISet(APIView):
         POST 요청으로 사용자의 위치와 조건을 받아 추천 숙소를 반환합니다.
         """
         try:
-            # 사용자 요청 데이터
-            voice_text = request.data.get('voice_text')  # 음성 텍스트 데이터
-            user_location = request.data.get('user_location')  # [latitude, longitude]
-            max_distance = request.data.get('max_distance', 50)  # 최대 거리 (기본값 50km)
+            voice_text = request.data.get("voice_text")  # 사용자의 음성 텍스트
+            max_distance = request.data.get("max_distance", 50)  # 최대 거리 (기본값: 50km)
+            default_location = (36.3504, 127.3845)  # 기본 위치: 대전
 
-            # 1. user_location이 제공된 경우: 바로 사용
-            if user_location:
-                user_location = tuple(map(float, user_location))  # 문자열 배열을 float 튜플로 변환
+            if not voice_text:
+                return Response({"error": "voice_text is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # 2. user_location이 없고 voice_text가 제공된 경우: 키워드로 위치 추정
-            elif voice_text:
-                location_keyword = self.extract_location(voice_text)
-                user_location = self.get_location_from_keyword(location_keyword)
+            # 음성 텍스트에서 위치 추출
+            user_location = self._extract_location_from_voice(voice_text, default_location)
 
-            # 3. 위치 정보가 없는 경우 기본 위치 설정 (예: 대전 중심 좌표)
-            if not user_location:
-                user_location = (36.3504, 127.3845)  # 대전 중심 좌표 예시
-
-            # 기본 위치 설정 (위치가 없을 경우)
-            if not user_location:
-                # 대전 중심 좌표 예시
-                user_location = (36.3504, 127.3845)
-
-            # 숙소 데이터 가져오기
+            # 호텔 데이터 로드
             accommodations = Accommodation.objects.all().values(
                 "id", "name", "price", "latitude", "longitude", "ranks"
             )
-            reviews = Review.objects.values("accommodation_id", "rating")
-
-            # 숙소와 리뷰를 DataFrame으로 변환
             accommodation_df = pd.DataFrame(list(accommodations))
-            review_df = pd.DataFrame(list(reviews))
 
-            # 평균 리뷰 점수 추가
-            if not review_df.empty:
-                review_avg = review_df.groupby("accommodation_id")["rating"].mean().reset_index()
-                accommodation_df = accommodation_df.merge(review_avg, left_on="id", right_on="accommodation_id",
-                                                          how="left")
-                accommodation_df.rename(columns={"rating": "avg_review_score"}, inplace=True)
-            else:
-                accommodation_df["avg_review_score"] = 0.0
+            if accommodation_df.empty:
+                return Response({"error": "No accommodations found"}, status=status.HTTP_404_NOT_FOUND)
 
             # 거리 계산
             accommodation_df["distance"] = accommodation_df.apply(
-                lambda row: geodesic((float(row['latitude']), float(row['longitude'])),
-                                     (float(user_location[0]), float(user_location[1]))).km,
-                axis=1
+                lambda row: geodesic(
+                    (float(row["latitude"]), float(row["longitude"])),
+                    (float(user_location[0]), float(user_location[1]))
+                ).km,
+                axis=1,
             )
-
-            decimal_columns = ['price', 'distance', 'ranks', 'avg_review_score']
-            for col in decimal_columns:
-                if col in accommodation_df.columns:
-                    accommodation_df[col] = accommodation_df[col].astype(float)
 
             # 거리 필터링
             accommodation_df = accommodation_df[accommodation_df["distance"] <= max_distance]
-
             if accommodation_df.empty:
-                return Response({"message": "No accommodations found within the specified distance."},
+                return Response({"error": "No accommodations within the specified distance"},
                                 status=status.HTTP_404_NOT_FOUND)
 
             # 정규화 및 점수 계산
@@ -345,28 +336,23 @@ class AISet(APIView):
                 1 / (accommodation_df["distance"] + 1).values.reshape(-1, 1))
             accommodation_df["price_score"] = scaler.fit_transform(
                 1 / (accommodation_df["price"] + 1).values.reshape(-1, 1))
-
             accommodation_df["final_score"] = (
-                    0.3 * accommodation_df["distance_score"] +
+                    0.4 * accommodation_df["distance_score"] +
                     0.3 * accommodation_df["ranks"] +
-                    0.2 * accommodation_df["avg_review_score"] +
-                    0.2 * accommodation_df["price_score"]
+                    0.2 * accommodation_df["distance_score"] +
+                    0.1 * accommodation_df["price_score"]
             )
 
-            # 상위 10개 추천
+            # 상위 10개 호텔 추천
             recommended_hotels = accommodation_df.sort_values("final_score", ascending=False).head(10)
             hotel_names = recommended_hotels["name"].tolist()
             hotels = Accommodation.objects.filter(name__in=hotel_names)
 
             if not hotels.exists():
-                return Response({"message": "no found recommended hotels."},
-                                status=status.HTTP_404_NOT_FOUND)
+                return Response({"message": "No recommended hotels found"}, status=status.HTTP_404_NOT_FOUND)
 
             serializer = AccommodationSerializer(hotels, many=True)
-
-            response = Response({"recommended_hotels": serializer.data}, status=status.HTTP_200_OK)
-            response['Content-Type'] = 'application/json; charset=utf-8'
-            return response
+            return Response({"recommended_hotels": serializer.data}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -376,22 +362,132 @@ class AISet(APIView):
         음성 텍스트에서 키워드(지역명) 추출
         """
         # 간단한 키워드 매칭 (예: 대전 지역 기반 키워드)
-        keywords = ['유성구', '서구', '대덕구', '중구', '동구']
-        for keyword in keywords:
-            if keyword in voice_text:
-                return keyword
-        return None
+        okt = Okt()
 
-    def get_location_from_keyword(self, keyword):
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))  # 프로젝트 루트 디렉터리
+        file_path = os.path.join(base_dir, "dajeon_coordinates.csv")
+
+        daejeon_locations = pd.read_csv(file_path)
+
+        # 음성 텍스트에서 명사 추출
+        tokens = okt.nouns(voice_text)
+        locations = [word for word in tokens if "동" in word or "구" in word]
+
+        default_location = (36.3504, 127.3845)
+
+        # 대전 지역 매핑
+        for loc in locations:
+            if "구" in loc:
+                clean_loc = loc.rstrip("구")
+                matching = daejeon_locations[daejeon_locations["District"].str.contains(clean_loc)]
+            elif "동" in loc:
+                clean_loc = loc.rstrip("동")
+                matching = daejeon_locations[daejeon_locations["Area"].str.contains(clean_loc)]
+
+            if not matching.empty:
+                location_row = matching.iloc[0]
+                return (location_row["Latitude"], location_row["Longitude"])
+
+        # 위치를 추출하지 못하면 기본 위치 반환
+        return default_location
+
+# GPT 사용, 프롬포트 : AI코드와 내 백엔드 코드를 합쳐줘
+class RouteRecommendationAPIView(APIView):
+    """
+    경로 추천 API
+    """
+    def post(self, request):
+        try:
+            user_location = request.data.get("user_location")
+            hotel_name = request.data.get("hotel_name")
+
+            if not user_location or not hotel_name:
+                return Response(
+                    {"error": "user_location and hotel_name are required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 호텔 이름으로 DB에서 검색
+            try:
+                hotel = Accommodation.objects.get(name__icontains=hotel_name)  # 대소문자 무시 검색
+            except Accommodation.DoesNotExist:
+                return Response({"error": "Hotel not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            # 호텔의 위도와 경도 변환 (필요한 경우)
+            if not hotel.latitude or not hotel.longitude:
+                hotel.latitude, hotel.longitude = self.get_lat_lng_from_address(hotel.address)
+                if not hotel.latitude or not hotel.longitude:
+                    return Response(
+                        {"error": "Unable to retrieve geolocation for the hotel address"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+                hotel.save()  # 변환된 좌표를 DB에 저장
+
+            # 경로 계산
+            transit_time = self.get_transit_time(user_location, (hotel.latitude, hotel.longitude))
+            car_time = self.get_car_time(user_location, (hotel.latitude, hotel.longitude))
+
+            # 응답 데이터 생성
+            response_data = HotelRouteResponseSerializer(
+                {
+                    "name": hotel.name,
+                    "address": hotel.address,
+                    "latitude": hotel.latitude,
+                    "longitude": hotel.longitude,
+                    "transit_time": transit_time,
+                    "car_time": car_time,
+                }
+            ).data
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def get_lat_lng_from_address(self, address):
         """
-        키워드로부터 위경도 좌표 반환
+        Google Maps Geocoding API를 사용하여 주소를 위도와 경도로 변환
         """
-        # 지역 데이터 매핑
-        location_mapping = {
-            '유성구': (36.3622, 127.3567),
-            '서구': (36.3468, 127.3845),
-            '대덕구': (36.3730, 127.4142),
-            '중구': (36.3010, 127.4195),
-            '동구': (36.3356, 127.4548),
-        }
-        return location_mapping.get(keyword)
+        try:
+            geocode_result = gmaps.geocode(address)
+            if geocode_result:
+                location = geocode_result[0]['geometry']['location']
+                return location['lat'], location['lng']
+            return None, None
+        except Exception as e:
+            print(f"Geocoding error: {e}")
+            return None, None
+
+    def get_transit_time(self, start_location, end_location):
+        """
+        Google Maps Distance Matrix API를 사용하여 대중교통 이동 시간 계산
+        """
+        try:
+            start = f"{start_location[0]},{start_location[1]}"
+            end = f"{end_location[0]},{end_location[1]}"
+            result = gmaps.distance_matrix(start, end, mode="transit", departure_time=datetime.now())
+            duration = result['rows'][0]['elements'][0].get('duration', {}).get('text', "Not available")
+            return duration
+        except Exception as e:
+            print(f"Transit time error: {e}")
+            return "Error calculating transit time"
+
+    def get_car_time(self, start_location, end_location):
+        """
+        Naver Maps API를 사용하여 자동차 이동 시간 계산
+        """
+        try:
+            start = f"{start_location[1]},{start_location[0]}"  # Naver는 경도, 위도 순서
+            end = f"{end_location[1]},{end_location[0]}"
+            params = {"start": start, "goal": end, "option": "trafast"}  # 실시간 빠른 길
+            response = requests.get(naver_url, headers=headers, params=params)
+
+            if response.status_code == 200:
+                result = response.json()
+                duration = result.get("route", {}).get("trafast", [{}])[0].get("summary", {}).get("duration", None)
+                if duration is not None:
+                    return f"{round(duration / 60000)} minutes"  # 밀리초 -> 분
+            return "Not available"
+        except Exception as e:
+            print(f"Car time error: {e}")
+            return "Error calculating car time"

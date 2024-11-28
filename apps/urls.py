@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path
 
 from .models import Reservation
-from .views import LikeAccommodation, AccommodationInfo, ReviewInfo, AISet, UserReservationInfo
+from .views import LikeAccommodation, AccommodationInfo, ReviewInfo, AISet, UserReservationInfo, RouteRecommendationAPIView
 from .csv_to_db import LoadCSVToDBView
 
 urlpatterns = [
@@ -27,5 +27,6 @@ urlpatterns = [
     path('accommodation-info/', AccommodationInfo.as_view(), name="user_reservation_info"),
     path('review-info/', ReviewInfo.as_view(), name="review_info"),
     path('ai-response/', AISet.as_view(), name='AI'),
-    path('reservation-info/', UserReservationInfo.as_view(), name='reservation')
+    path('reservation-info/', UserReservationInfo.as_view(), name='reservation'),
+    path('route-response/', RouteRecommendationAPIView.as_view(), name='route')
 ]
