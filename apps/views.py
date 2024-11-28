@@ -22,17 +22,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH).to(device)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 
-GMAPS_API_KEY = settings.GMAPS_API_KEY
-gmaps = googlemaps.Client(key=GMAPS_API_KEY)
-
-NAVER_CLIENT_ID = settings.NAVER_CLIENT_ID
-NAVER_CLIENT_SECRET = settings.NAVER_CLIENT_SECRET
-naver_url = "https://naveropenapi.apigw.ntruss.com/map-direction-15/v1/driving"
-headers = {
-    "X-NCP-APIGW-API-KEY-ID": NAVER_CLIENT_ID,
-    "X-NCP-APIGW-API-KEY": NAVER_CLIENT_SECRET,
-}
-
 okt = Okt()
 
 class UserReservationInfo(APIView):
@@ -396,6 +385,18 @@ class RouteRecommendationAPIView(APIView):
     """
     경로 추천 API
     """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Google Maps Client 초기화
+        self.gmaps = googlemaps.Client(key=settings.GMAPS_API_KEY)
+
+        # Naver Maps API 초기화
+        self.naver_url = "https://naveropenapi.apigw.ntruss.com/map-direction-15/v1/driving"
+        self.naver_headers = {
+            "X-NCP-APIGW-API-KEY-ID": settings.NAVER_CLIENT_ID,
+            "X-NCP-APIGW-API-KEY": settings.NAVER_CLIENT_SECRET,
+        }
+
     def post(self, request):
         try:
             user_location = request.data.get("user_location")
@@ -428,16 +429,14 @@ class RouteRecommendationAPIView(APIView):
             car_time = self.get_car_time(user_location, (hotel.latitude, hotel.longitude))
 
             # 응답 데이터 생성
-            response_data = HotelRouteResponseSerializer(
-                {
-                    "name": hotel.name,
-                    "address": hotel.address,
-                    "latitude": hotel.latitude,
-                    "longitude": hotel.longitude,
-                    "transit_time": transit_time,
-                    "car_time": car_time,
-                }
-            ).data
+            response_data = {
+                "name": hotel.name,
+                "address": hotel.address,
+                "latitude": hotel.latitude,
+                "longitude": hotel.longitude,
+                "transit_time": transit_time,
+                "car_time": car_time,
+            }
 
             return Response(response_data, status=status.HTTP_200_OK)
 
@@ -449,7 +448,7 @@ class RouteRecommendationAPIView(APIView):
         Google Maps Geocoding API를 사용하여 주소를 위도와 경도로 변환
         """
         try:
-            geocode_result = gmaps.geocode(address)
+            geocode_result = self.gmaps.geocode(address)
             if geocode_result:
                 location = geocode_result[0]['geometry']['location']
                 return location['lat'], location['lng']
@@ -465,7 +464,7 @@ class RouteRecommendationAPIView(APIView):
         try:
             start = f"{start_location[0]},{start_location[1]}"
             end = f"{end_location[0]},{end_location[1]}"
-            result = gmaps.distance_matrix(start, end, mode="transit", departure_time=datetime.now())
+            result = self.gmaps.distance_matrix(start, end, mode="transit", departure_time=datetime.now())
             duration = result['rows'][0]['elements'][0].get('duration', {}).get('text', "Not available")
             return duration
         except Exception as e:
@@ -480,7 +479,7 @@ class RouteRecommendationAPIView(APIView):
             start = f"{start_location[1]},{start_location[0]}"  # Naver는 경도, 위도 순서
             end = f"{end_location[1]},{end_location[0]}"
             params = {"start": start, "goal": end, "option": "trafast"}  # 실시간 빠른 길
-            response = requests.get(naver_url, headers=headers, params=params)
+            response = requests.get(self.naver_url, headers=self.naver_headers, params=params)
 
             if response.status_code == 200:
                 result = response.json()
