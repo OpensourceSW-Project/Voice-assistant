@@ -286,7 +286,7 @@ class AISet(APIView):
         try:
             # 요청 데이터
             voice_text = request.data.get("voice_text")
-            user_id = request.data.get("user_id")
+            user_id = request.data.get("user_id")  # 사용자 ID (필수가 아님)
             max_distance = request.data.get("max_distance", 50)
             default_location = (36.3504, 127.3845)  # 기본 위치: 대전
             default_weights = {"distance": 0.3, "price": 0.2, "ranks": 0.5}  # 기본 가중치
@@ -295,14 +295,14 @@ class AISet(APIView):
             if not voice_text:
                 return Response({"error": "voice_text is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-            if not user_id:
-                return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
             # 음성 텍스트에서 위치 추출
             user_location = self.extract_location(voice_text)
 
-            # 사용자 선호도 기반 가중치 업데이트
-            user_weights = self.update_weights(user_id, default_weights)
+            # 사용자 선호도 기반 가중치 업데이트 (user_id 없으면 기본 가중치 사용)
+            if user_id:
+                user_weights = self.update_weights(user_id, default_weights)
+            else:
+                user_weights = default_weights
 
             # 호텔 데이터 로드
             accommodations = Accommodation.objects.all().values(
@@ -359,14 +359,7 @@ class AISet(APIView):
             if not hotels.exists():
                 return Response({"message": "No recommended hotels found"}, status=status.HTTP_404_NOT_FOUND)
 
-            # 상위 10개 호텔 추천
-            recommended_hotels = accommodation_df.sort_values("final_score", ascending=False).head(10)
-            hotel_names = recommended_hotels["name"].tolist()
-            hotels = Accommodation.objects.filter(name__in=hotel_names)
-
-            if not hotels.exists():
-                return Response({"message": "No recommended hotels found"}, status=status.HTTP_404_NOT_FOUND)
-
+            # 직렬화 및 응답
             serializer = AccommodationSerializer(hotels, many=True)
             return Response({"recommended_hotels": serializer.data}, status=status.HTTP_200_OK)
 
