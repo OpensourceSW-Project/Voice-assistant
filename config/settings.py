@@ -15,8 +15,6 @@ from pathlib import Path
 
 from tutorial.settings import SECRET_KEY, DATABASES
 
-from apps.views import GMAPS_API_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 # BASE_DIR = Path(__file__).resolve().parent.parent
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
