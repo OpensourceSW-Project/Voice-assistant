@@ -17,6 +17,7 @@ dependencies:
     path: ./packages/speech_to_text
   http: ^1.2.2
   url_launcher: ^6.1.5
+  intl: ^0.18.0
 
 dev_dependencies:
   flutter_test:

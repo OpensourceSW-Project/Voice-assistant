@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'voice_screen.dart'; // VoiceScreen 임포트
 import 'review_screen.dart'; // ReviewScreen 임포트
+import 'like_screen.dart'; // LikeScreen 임포트
 
 class HotelAllPage extends StatefulWidget {
   const HotelAllPage({super.key});
@@ -22,6 +23,12 @@ class _HotelAllPageState extends State<HotelAllPage> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const VoiceScreen()),
+      );
+    } else if (index == 3) {
+      // Favorites 아이콘 클릭 시 LikeScreen으로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const LikeScreen()),
       );
     } else {
       setState(() {
@@ -82,7 +89,10 @@ class _HotelAllPageState extends State<HotelAllPage> {
           itemCount: _hotelList.length,
           itemBuilder: (context, index) {
             final hotel = _hotelList[index];
-            return HotelCard(hotel: hotel);
+            return HotelCard(
+              hotel: hotel,
+              onFavoriteChanged: fetchHotelData, // 좋아요 변경 시 호출
+            );
           },
         ),
       ),
@@ -119,10 +129,80 @@ class _HotelAllPageState extends State<HotelAllPage> {
   }
 }
 
-class HotelCard extends StatelessWidget {
+class HotelCard extends StatefulWidget {
   final Hotel hotel;
+  final VoidCallback onFavoriteChanged; // 좋아요 상태 변경 콜백
 
-  const HotelCard({super.key, required this.hotel});
+  const HotelCard({
+    super.key,
+    required this.hotel,
+    required this.onFavoriteChanged,
+  });
+
+  @override
+  _HotelCardState createState() => _HotelCardState();
+}
+
+class _HotelCardState extends State<HotelCard> {
+  bool _isLiked = false;
+
+  // 좋아요 생성 (POST)
+  Future<void> _likeHotel() async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://107.23.187.64:8000/api/like-accommodation/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "user_id": 1, // 유저 ID를 적절히 수정해야 할 수 있음
+          "accommodation_name": widget.hotel.name,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _isLiked = true;
+        });
+        widget.onFavoriteChanged(); // 좋아요 상태 변경 시 호출
+        showSnackBar(context, '북마크에 추가되었습니다!');
+      } else {
+        showSnackBar(context, '추가 실패');
+      }
+    } catch (e) {
+      showSnackBar(context, '네트워크 오류: $e');
+    }
+  }
+
+  // 좋아요 삭제 (DELETE)
+  Future<void> _unlikeHotel() async {
+    try {
+      final response = await http.delete(
+        Uri.parse('http://107.23.187.64:8000/api/like-accommodation/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "user_id": 1, // 유저 ID를 적절히 수정해야 할 수 있음
+          "accommodation_name": widget.hotel.name,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _isLiked = false;
+        });
+        widget.onFavoriteChanged(); // 좋아요 상태 변경 시 호출
+        showSnackBar(context, '좋아요가 취소되었습니다!');
+      } else {
+        showSnackBar(context, '좋아요 취소 실패!');
+      }
+    } catch (e) {
+      showSnackBar(context, '네트워크 오류: $e');
+    }
+  }
+
+  void showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -132,7 +212,7 @@ class HotelCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ReviewScreen(accommodationName: hotel.name), // Hotel 객체를 ReviewScreen에 전달
+            builder: (context) => ReviewScreen(accommodationName: widget.hotel.name),
           ),
         );
       },
@@ -149,7 +229,7 @@ class HotelCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                hotel.name,
+                widget.hotel.name,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -158,7 +238,7 @@ class HotelCard extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                hotel.address,
+                widget.hotel.address,
                 style: const TextStyle(
                   color: Colors.white,
                   fontFamily: 'NanumGothic',
@@ -166,7 +246,7 @@ class HotelCard extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                '가격: ${hotel.price == 0 ? '가격 정보 없음' : '${hotel.price}원'}',
+                '가격: ${widget.hotel.price == 0 ? '가격 정보 없음' : '${widget.hotel.price}원'}',
                 style: const TextStyle(
                   color: Color(0xFF163C9F),
                   fontFamily: 'NanumGothic',
@@ -177,24 +257,25 @@ class HotelCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '평점: ${hotel.ranks}',
+                    '평점: ${widget.hotel.ranks}',
                     style: const TextStyle(fontFamily: 'NanumGothic'),
                   ),
                   Row(
                     children: [
-                      // 전화 버튼을 원형 버튼 안에 넣기
                       CircleAvatar(
                         radius: 25,
                         backgroundColor: const Color(0xFF163C9F),
                         child: IconButton(
-                          icon: const Icon(Icons.phone, color: Colors.white),
+                          icon: Icon(
+                            Icons.favorite,
+                            color: _isLiked ? Colors.red : Colors.white,
+                          ),
                           onPressed: () {
-                            showSnackBar(context, '전화 버튼 클릭됨');
+                            _isLiked ? _unlikeHotel() : _likeHotel();
                           },
                         ),
                       ),
-                      const SizedBox(width: 10), // 버튼 간격
-                      // 지도 버튼을 원형 버튼 안에 넣기
+                      const SizedBox(width: 10),
                       CircleAvatar(
                         radius: 25,
                         backgroundColor: const Color(0xFF163C9F),
@@ -213,12 +294,6 @@ class HotelCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  void showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
     );
   }
 }
@@ -241,10 +316,10 @@ class Hotel {
   factory Hotel.fromJson(Map<String, dynamic> json) {
     return Hotel(
       id: json['id'],
-      name: json['name'],
+      name: json['accommodation_name'],
       address: json['address'],
-      price: json['price'],
-      ranks: json['ranks'],
+      price: json['price'] ?? 0,
+      ranks: json['rank'] ?? 'N/A',
     );
   }
 }
