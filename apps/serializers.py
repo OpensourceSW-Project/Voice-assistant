@@ -32,3 +32,9 @@ class HotelRouteResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Accommodation
         fields = ['name', 'address', 'latitude', 'longitude', 'transit_time', 'car_time']
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['latitude'] = float(representation['latitude'])
+        representation['longitude'] = float(representation['longitude'])
+        return representation
