@@ -22,8 +22,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH).to(device)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 
-okt = Okt()
-
 class UserReservationInfo(APIView):
     # 유저 예약 정보 조회
     def get(self, request, format=None):
