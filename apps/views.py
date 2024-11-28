@@ -286,7 +286,7 @@ class AISet(APIView):
         try:
             # 요청 데이터
             voice_text = request.data.get("voice_text")
-            user_id = request.data.get("user_id")
+            user_id = request.data.get("user_id")  # 사용자 ID (필수가 아님)
             max_distance = request.data.get("max_distance", 50)
             default_location = (36.3504, 127.3845)  # 기본 위치: 대전
             default_weights = {"distance": 0.3, "price": 0.2, "ranks": 0.5}  # 기본 가중치
@@ -308,7 +308,19 @@ class AISet(APIView):
             accommodations = Accommodation.objects.all().values(
                 "id", "name", "price", "latitude", "longitude", "ranks", "address"
             )
-            accommodation_df = pd.DataFrame(list(accommodations))
+            accommodation_list = [
+                {
+                    "id": acc["id"],
+                    "name": acc["name"],
+                    "price": float(acc["price"]) if acc["price"] is not None else 0.0,
+                    "latitude": float(acc["latitude"]) if acc["latitude"] is not None else 0.0,
+                    "longitude": float(acc["longitude"]) if acc["longitude"] is not None else 0.0,
+                    "ranks": float(acc["ranks"]) if acc["ranks"] is not None else 0.0,
+                    "address": acc["address"],
+                }
+                for acc in accommodations
+            ]
+            accommodation_df = pd.DataFrame(accommodation_list)
 
             if accommodation_df.empty:
                 return Response({"error": "No accommodations found"}, status=status.HTTP_404_NOT_FOUND)
