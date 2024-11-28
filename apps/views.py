@@ -351,7 +351,7 @@ class AISet(APIView):
         # 간단한 키워드 매칭 (예: 대전 지역 기반 키워드)
         okt = Okt()
 
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))  # 프로젝트 루트 디렉터리
+        base_dir = os.path.dirname(os.path.abspath(__file__))
         file_path = os.path.join(base_dir, "dajeon_coordinates.csv")
 
         daejeon_locations = pd.read_csv(file_path)
