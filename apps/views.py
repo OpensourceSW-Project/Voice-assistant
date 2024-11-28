@@ -297,7 +297,18 @@ class AISet(APIView):
             accommodations = Accommodation.objects.all().values(
                 "id", "name", "price", "latitude", "longitude", "ranks"
             )
-            accommodation_df = pd.DataFrame(list(accommodations))
+            accommodation_list = [
+                {
+                    "id": acc["id"],
+                    "name": acc["name"],
+                    "price": float(acc["price"]) if isinstance(acc["price"], Decimal) else acc["price"],
+                    "latitude": float(acc["latitude"]) if isinstance(acc["latitude"], Decimal) else acc["latitude"],
+                    "longitude": float(acc["longitude"]) if isinstance(acc["longitude"], Decimal) else acc["longitude"],
+                    "ranks": float(acc["ranks"]) if isinstance(acc["ranks"], Decimal) else acc["ranks"],
+                }
+                for acc in accommodations
+            ]
+            accommodation_df = pd.DataFrame(accommodation_list)
 
             if accommodation_df.empty:
                 return Response({"error": "No accommodations found"}, status=status.HTTP_404_NOT_FOUND)
@@ -305,8 +316,8 @@ class AISet(APIView):
             # 거리 계산
             accommodation_df["distance"] = accommodation_df.apply(
                 lambda row: geodesic(
-                    (float(row["latitude"]), float(row["longitude"])),
-                    (float(user_location[0]), float(user_location[1]))
+                    (row["latitude"], row["longitude"]),
+                    (user_location[0], user_location[1])
                 ).km,
                 axis=1,
             )
