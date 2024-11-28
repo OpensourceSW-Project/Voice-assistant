@@ -308,19 +308,7 @@ class AISet(APIView):
             accommodations = Accommodation.objects.all().values(
                 "id", "name", "price", "latitude", "longitude", "ranks", "address"
             )
-            accommodation_list = [
-                {
-                    "id": acc["id"],
-                    "name": acc["name"],
-                    "price": float(acc["price"]) if acc["price"] is not None else 0.0,
-                    "latitude": float(acc["latitude"]) if acc["latitude"] is not None else 0.0,
-                    "longitude": float(acc["longitude"]) if acc["longitude"] is not None else 0.0,
-                    "ranks": float(acc["ranks"]) if acc["ranks"] is not None else 0.0,
-                    "address": acc["address"],
-                }
-                for acc in accommodations
-            ]
-            accommodation_df = pd.DataFrame(accommodation_list)
+            accommodation_df = pd.DataFrame(list(accommodations))
 
             if accommodation_df.empty:
                 return Response({"error": "No accommodations found"}, status=status.HTTP_404_NOT_FOUND)
@@ -361,9 +349,13 @@ class AISet(APIView):
 
             # 상위 10개 호텔 추천
             recommended_hotels = accommodation_df.sort_values("final_score", ascending=False).head(10)
-            recommended_hotels = recommended_hotels.to_dict("records")  # DataFrame -> Dict
 
-            return Response({"recommended_hotels": recommended_hotels}, status=status.HTTP_200_OK)
+            # 응답 데이터 단순화
+            response_hotels = recommended_hotels[["id", "name", "price", "ranks", "address"]]
+            response_hotels["ranks"] = response_hotels["ranks"].round(1)  # 소수점 정리
+            response_hotels = response_hotels.to_dict("records")  # DataFrame -> Dict
+
+            return Response({"recommended_hotels": response_hotels}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
