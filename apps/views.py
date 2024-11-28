@@ -496,7 +496,7 @@ class RouteRecommendationAPIView(APIView):
                 duration = result.get("route", {}).get("trafast", [{}])[0].get("summary", {}).get("duration", None)
                 if duration is not None:
                     return f"{round(duration / 60000)} minutes"  # 밀리초 -> 분
-            return "Not available"
+            return {"error": f"Failed to retrieve car time, status code: {response.status_code}"}
         except Exception as e:
             print(f"Car time error: {e}")
             return "Error calculating car time"
