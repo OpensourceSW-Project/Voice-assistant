@@ -8,6 +8,7 @@ from apps.models import Reservation, Accommodation, User, Review
 from django.core.paginator import Paginator, EmptyPage
 from datetime import datetime
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from decimal import Decimal
 import torch
 from geopy.distance import geodesic
 from sklearn.preprocessing import MinMaxScaler
