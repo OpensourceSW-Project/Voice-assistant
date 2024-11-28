@@ -291,7 +291,7 @@ class AISet(APIView):
                 return Response({"error": "voice_text is required"}, status=status.HTTP_400_BAD_REQUEST)
 
             # 음성 텍스트에서 위치 추출
-            user_location = self._extract_location_from_voice(voice_text, default_location)
+            user_location = self.extract_location(voice_text)  # 메서드 이름 수정
 
             # 호텔 데이터 로드
             accommodations = Accommodation.objects.all().values(
