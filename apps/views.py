@@ -286,7 +286,7 @@ class AISet(APIView):
         try:
             # 요청 데이터
             voice_text = request.data.get("voice_text")
-            user_id = request.data.get("user_id")  # 사용자 ID (필수가 아님)
+            user_id = request.data.get("user_id")
             max_distance = request.data.get("max_distance", 50)
             default_location = (36.3504, 127.3845)  # 기본 위치: 대전
             default_weights = {"distance": 0.3, "price": 0.2, "ranks": 0.5}  # 기본 가중치
@@ -296,7 +296,7 @@ class AISet(APIView):
                 return Response({"error": "voice_text is required"}, status=status.HTTP_400_BAD_REQUEST)
 
             # 음성 텍스트에서 위치 추출
-            user_location = self.extract_location(voice_text)
+            extracted_location, user_location = self.extract_location(voice_text)
 
             # 사용자 선호도 기반 가중치 업데이트 (user_id 없으면 기본 가중치 사용)
             if user_id:
@@ -306,23 +306,18 @@ class AISet(APIView):
 
             # 호텔 데이터 로드
             accommodations = Accommodation.objects.all().values(
-                "id", "name", "price", "latitude", "longitude", "ranks"
+                "id", "name", "price", "latitude", "longitude", "ranks", "address"
             )
-            accommodation_list = [
-                {
-                    "id": acc["id"],
-                    "name": acc["name"],
-                    "price": float(acc["price"]) if isinstance(acc["price"], Decimal) else acc["price"],
-                    "latitude": float(acc["latitude"]) if isinstance(acc["latitude"], Decimal) else acc["latitude"],
-                    "longitude": float(acc["longitude"]) if isinstance(acc["longitude"], Decimal) else acc["longitude"],
-                    "ranks": float(acc["ranks"]) if isinstance(acc["ranks"], Decimal) else acc["ranks"],
-                }
-                for acc in accommodations
-            ]
-            accommodation_df = pd.DataFrame(accommodation_list)
+            accommodation_df = pd.DataFrame(list(accommodations))
 
             if accommodation_df.empty:
                 return Response({"error": "No accommodations found"}, status=status.HTTP_404_NOT_FOUND)
+
+            # 지역 필터링
+            if extracted_location:  # 추출된 지역이 있으면 해당 지역의 숙소만 필터링
+                accommodation_df["is_in_region"] = accommodation_df["address"].str.contains(extracted_location)
+            else:  # 추출된 지역이 없으면 모두 포함
+                accommodation_df["is_in_region"] = True
 
             # 거리 계산
             accommodation_df["distance"] = accommodation_df.apply(
@@ -348,20 +343,15 @@ class AISet(APIView):
             accommodation_df["final_score"] = (
                 user_weights["distance"] * accommodation_df["distance_score"] +
                 user_weights["price"] * accommodation_df["price_score"] +
-                user_weights["ranks"] * accommodation_df["ranks"]
+                user_weights["ranks"] * accommodation_df["ranks"] +
+                0.2 * accommodation_df["is_in_region"]  # 지역 일치 여부를 추가 가중치로 활용
             )
 
             # 상위 10개 호텔 추천
             recommended_hotels = accommodation_df.sort_values("final_score", ascending=False).head(10)
-            hotel_names = recommended_hotels["name"].tolist()
-            hotels = Accommodation.objects.filter(name__in=hotel_names)
+            recommended_hotels = recommended_hotels.to_dict("records")  # DataFrame -> Dict
 
-            if not hotels.exists():
-                return Response({"message": "No recommended hotels found"}, status=status.HTTP_404_NOT_FOUND)
-
-            # 직렬화 및 응답
-            serializer = AccommodationSerializer(hotels, many=True)
-            return Response({"recommended_hotels": serializer.data}, status=status.HTTP_200_OK)
+            return Response({"recommended_hotels": recommended_hotels}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -393,10 +383,10 @@ class AISet(APIView):
 
             if not matching.empty:
                 location_row = matching.iloc[0]
-                return (location_row["Latitude"], location_row["Longitude"])
+                return loc, (location_row["Latitude"], location_row["Longitude"])
 
         # 위치를 추출하지 못하면 기본 위치 반환
-        return default_location
+        return None, default_location
 
     def update_weights(self, user_id, default_weights):
         """
