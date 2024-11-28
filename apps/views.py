@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from django.conf import settings
 from django.db.models import Avg
-from apps.serializers import ReservationSerializer, AccommodationSerializer, ReviewSerializer, HotelRouteResponseSerializer
+from apps.serializers import ReservationSerializer, AccommodationSerializer, ReviewSerializer
 from apps.models import Reservation, Accommodation, User, Review
 from django.core.paginator import Paginator, EmptyPage
 from datetime import datetime
@@ -284,15 +284,25 @@ class AISet(APIView):
         POST 요청으로 사용자의 위치와 조건을 받아 추천 숙소를 반환합니다.
         """
         try:
-            voice_text = request.data.get("voice_text")  # 사용자의 음성 텍스트
-            max_distance = request.data.get("max_distance", 50)  # 최대 거리 (기본값: 50km)
+            # 요청 데이터
+            voice_text = request.data.get("voice_text")
+            user_id = request.data.get("user_id")
+            max_distance = request.data.get("max_distance", 50)
             default_location = (36.3504, 127.3845)  # 기본 위치: 대전
+            default_weights = {"distance": 0.3, "price": 0.2, "ranks": 0.5}  # 기본 가중치
 
+            # 필수 필드 확인
             if not voice_text:
                 return Response({"error": "voice_text is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+            if not user_id:
+                return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
             # 음성 텍스트에서 위치 추출
-            user_location = self.extract_location(voice_text)  # 메서드 이름 수정
+            user_location = self.extract_location(voice_text)
+
+            # 사용자 선호도 기반 가중치 업데이트
+            user_weights = self.update_weights(user_id, default_weights)
 
             # 호텔 데이터 로드
             accommodations = Accommodation.objects.all().values(
@@ -336,11 +346,18 @@ class AISet(APIView):
             accommodation_df["price_score"] = scaler.fit_transform(
                 1 / (accommodation_df["price"] + 1).values.reshape(-1, 1))
             accommodation_df["final_score"] = (
-                    0.4 * accommodation_df["distance_score"] +
-                    0.3 * accommodation_df["ranks"] +
-                    0.2 * accommodation_df["distance_score"] +
-                    0.1 * accommodation_df["price_score"]
+                user_weights["distance"] * accommodation_df["distance_score"] +
+                user_weights["price"] * accommodation_df["price_score"] +
+                user_weights["ranks"] * accommodation_df["ranks"]
             )
+
+            # 상위 10개 호텔 추천
+            recommended_hotels = accommodation_df.sort_values("final_score", ascending=False).head(10)
+            hotel_names = recommended_hotels["name"].tolist()
+            hotels = Accommodation.objects.filter(name__in=hotel_names)
+
+            if not hotels.exists():
+                return Response({"message": "No recommended hotels found"}, status=status.HTTP_404_NOT_FOUND)
 
             # 상위 10개 호텔 추천
             recommended_hotels = accommodation_df.sort_values("final_score", ascending=False).head(10)
@@ -360,9 +377,7 @@ class AISet(APIView):
         """
         음성 텍스트에서 키워드(지역명) 추출
         """
-        # 간단한 키워드 매칭 (예: 대전 지역 기반 키워드)
         okt = Okt()
-
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         file_path = os.path.join(base_dir, "dajeon_coordinates.csv")
 
@@ -389,6 +404,33 @@ class AISet(APIView):
 
         # 위치를 추출하지 못하면 기본 위치 반환
         return default_location
+
+    def update_weights(self, user_id, default_weights):
+        """
+        사용자 선호도 기반으로 가중치 업데이트
+        """
+        try:
+            user = User.objects.get(id=user_id)
+            liked_hotels = user.likes.all()
+
+            if not liked_hotels.exists():
+                return default_weights  # 좋아요 데이터가 없으면 기본 가중치 반환
+
+            # 좋아요 숙소의 평균 데이터 계산
+            liked_df = pd.DataFrame.from_records(
+                liked_hotels.values("price", "ranks")
+            )
+
+            updated_weights = default_weights.copy()
+            if not liked_df.empty:
+                # 예시: 선호 데이터 기반 가중치 조정
+                updated_weights["price"] *= 1.1 if liked_df["price"].mean() > 100 else 0.9
+                updated_weights["ranks"] *= 1.2 if liked_df["ranks"].mean() > 4 else 0.8
+
+            return updated_weights
+        except Exception as e:
+            print(f"Error updating weights: {e}")
+            return default_weights
 
 # GPT 사용, 프롬포트 : AI코드와 내 백엔드 코드를 합쳐줘
 class RouteRecommendationAPIView(APIView):
