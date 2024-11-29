@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'voice_screen.dart'; // VoiceScreen import
+import 'voice_screen.dart';
+import 'hotel_all.dart';
 
 class LikeScreen extends StatefulWidget {
   const LikeScreen({super.key});
@@ -77,14 +78,20 @@ class _LikeScreenState extends State<LikeScreen> {
 
   void _onItemTapped(int index) {
     setState(() {
-      if (index == 2) {
+      if (index == 1) { // Hotel 아이콘 클릭 시
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const VoiceScreen()),
+          MaterialPageRoute(builder: (context) => const HotelAllPage()), // hotel_all.dart로 이동
+        );
+      } else if (index == 2) { // Home 아이콘 클릭 시
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const VoiceScreen()), // voice_screen.dart로 이동
         );
       }
     });
   }
+
 
   @override
   Widget build(BuildContext context) {

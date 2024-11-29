@@ -1,11 +1,8 @@
-// hotel_ai.dart
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'voice_screen.dart'; // VoiceScreen 임포트
 import 'review_screen.dart'; // ReviewScreen 임포트
-import 'like_screen.dart'; // LikeScreen 임포트
 
 class HotelAiPage extends StatefulWidget {
   final dynamic hotelData;
@@ -19,7 +16,6 @@ class _HotelAiPageState extends State<HotelAiPage> {
   int _selectedIndex = 4; // Search 아이콘 기본 선택
   bool _isLoading = true;
   List<Hotel> _hotelList = [];
-  List<int> _likedHotels = []; // 좋아요 호텔 ID 리스트
 
   void _onItemTapped(int index) {
     if (index == 2) {
@@ -27,12 +23,6 @@ class _HotelAiPageState extends State<HotelAiPage> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const VoiceScreen()),
-      );
-    } else if (index == 3) {
-      // Favorite 아이콘 클릭 시 LikeScreen으로 이동
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const LikeScreen()),
       );
     } else {
       setState(() {
@@ -91,6 +81,7 @@ class _HotelAiPageState extends State<HotelAiPage> {
         backgroundColor: const Color(0xFFA8C6F1),
         centerTitle: false,  // 왼쪽 정렬
       ),
+
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Container(
@@ -99,19 +90,7 @@ class _HotelAiPageState extends State<HotelAiPage> {
           itemCount: _hotelList.length,
           itemBuilder: (context, index) {
             final hotel = _hotelList[index];
-            return HotelCard(
-              hotel: hotel,
-              onLike: () {
-                setState(() {
-                  if (_likedHotels.contains(hotel.id)) {
-                    _likedHotels.remove(hotel.id); // 이미 좋아요 한 호텔은 제거
-                  } else {
-                    _likedHotels.add(hotel.id); // 좋아요 추가
-                  }
-                });
-              },
-              isLiked: _likedHotels.contains(hotel.id),
-            );
+            return HotelCard(hotel: hotel);
           },
         ),
       ),
@@ -150,15 +129,8 @@ class _HotelAiPageState extends State<HotelAiPage> {
 
 class HotelCard extends StatelessWidget {
   final Hotel hotel;
-  final VoidCallback onLike;
-  final bool isLiked;
 
-  const HotelCard({
-    super.key,
-    required this.hotel,
-    required this.onLike,
-    required this.isLiked,
-  });
+  const HotelCard({super.key, required this.hotel});
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +145,7 @@ class HotelCard extends StatelessWidget {
         );
       },
       child: Card(
-        color: const Color(0xFFB0E0E6),
+        color: const Color(0xFFA8C6F1),
         margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -218,14 +190,6 @@ class HotelCard extends StatelessWidget {
                   ),
                   Row(
                     children: [
-                      // 좋아요 버튼
-                      IconButton(
-                        icon: Icon(
-                          isLiked ? Icons.favorite : Icons.favorite_border,
-                          color: isLiked ? Colors.red : Colors.grey,
-                        ),
-                        onPressed: onLike,
-                      ),
                       // 전화 버튼을 원형 버튼 안에 넣기
                       CircleAvatar(
                         radius: 25,

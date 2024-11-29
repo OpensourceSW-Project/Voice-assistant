@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'voice_screen.dart'; // VoiceScreen 임포트
 import 'review_screen.dart'; // ReviewScreen 임포트
 import 'like_screen.dart'; // LikeScreen 임포트
+import 'time_screen.dart';
 
 class HotelAllPage extends StatefulWidget {
   const HotelAllPage({super.key});
@@ -145,15 +146,20 @@ class HotelCard extends StatefulWidget {
 
 class _HotelCardState extends State<HotelCard> {
   bool _isLiked = false;
+  bool _buttonPressed = false;
 
-  // 좋아요 생성 (POST)
-  Future<void> _likeHotel() async {
+  // 버튼 눌렀다 떼기
+  Future<void> _onLikePressed() async {
+    setState(() {
+      _buttonPressed = true;
+    });
+
     try {
       final response = await http.post(
         Uri.parse('http://107.23.187.64:8000/api/like-accommodation/'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          "user_id": 1, // 유저 ID를 적절히 수정해야 할 수 있음
+          "user_id": 1,
           "accommodation_name": widget.hotel.name,
         }),
       );
@@ -162,7 +168,6 @@ class _HotelCardState extends State<HotelCard> {
         setState(() {
           _isLiked = true;
         });
-        widget.onFavoriteChanged(); // 좋아요 상태 변경 시 호출
         showSnackBar(context, '북마크에 추가되었습니다!');
       } else {
         showSnackBar(context, '추가 실패');
@@ -170,32 +175,14 @@ class _HotelCardState extends State<HotelCard> {
     } catch (e) {
       showSnackBar(context, '네트워크 오류: $e');
     }
-  }
 
-  // 좋아요 삭제 (DELETE)
-  Future<void> _unlikeHotel() async {
-    try {
-      final response = await http.delete(
-        Uri.parse('http://107.23.187.64:8000/api/like-accommodation/'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "user_id": 1, // 유저 ID를 적절히 수정해야 할 수 있음
-          "accommodation_name": widget.hotel.name,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        setState(() {
-          _isLiked = false;
-        });
-        widget.onFavoriteChanged(); // 좋아요 상태 변경 시 호출
-        showSnackBar(context, '좋아요가 취소되었습니다!');
-      } else {
-        showSnackBar(context, '좋아요 취소 실패!');
-      }
-    } catch (e) {
-      showSnackBar(context, '네트워크 오류: $e');
-    }
+    // 버튼 눌렀다 떼기 효과 복구
+    Future.delayed(const Duration(milliseconds: 300), () {
+      setState(() {
+        _buttonPressed = false;
+        _isLiked = false; // 원상태로 복구
+      });
+    });
   }
 
   void showSnackBar(BuildContext context, String message) {
@@ -212,7 +199,8 @@ class _HotelCardState extends State<HotelCard> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ReviewScreen(accommodationName: widget.hotel.name),
+            builder: (context) =>
+                ReviewScreen(accommodationName: widget.hotel.name),
           ),
         );
       },
@@ -268,11 +256,11 @@ class _HotelCardState extends State<HotelCard> {
                         child: IconButton(
                           icon: Icon(
                             Icons.favorite,
-                            color: _isLiked ? Colors.red : Colors.white,
+                            color: _buttonPressed
+                                ? Colors.red
+                                : Colors.white, // 눌렀다 떼는 효과
                           ),
-                          onPressed: () {
-                            _isLiked ? _unlikeHotel() : _likeHotel();
-                          },
+                          onPressed: _onLikePressed,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -282,10 +270,16 @@ class _HotelCardState extends State<HotelCard> {
                         child: IconButton(
                           icon: const Icon(Icons.map, color: Colors.white),
                           onPressed: () {
-                            showSnackBar(context, '지도 버튼 클릭됨');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => TimeScreen(hotelName: widget.hotel.name),
+                              ),
+                            );
                           },
                         ),
                       ),
+
                     ],
                   ),
                 ],
@@ -316,10 +310,10 @@ class Hotel {
   factory Hotel.fromJson(Map<String, dynamic> json) {
     return Hotel(
       id: json['id'],
-      name: json['accommodation_name'],
+      name: json['name'],
       address: json['address'],
-      price: json['price'] ?? 0,
-      ranks: json['rank'] ?? 'N/A',
+      price: json['price'],
+      ranks: json['ranks'],
     );
   }
 }
