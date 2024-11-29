@@ -35,8 +35,9 @@ class VoiceScreenState extends State<VoiceScreen> {
       });
       _speech.listen(onResult: (result) {
         setState(() {
-          _text = result.recognizedWords;
-          _searchController.text = _text; // 음성 인식 결과를 검색창에 표시
+          _text = result.recognizedWords;  // 음성 인식 결과를 _text에 저장
+          _searchController.text = _text;  // 검색창에 텍스트 반영
+          _searchController.selection = TextSelection.fromPosition(TextPosition(offset: _text.length));  // 커서 위치를 텍스트 끝으로 설정
         });
       });
     }
@@ -63,30 +64,32 @@ class VoiceScreenState extends State<VoiceScreen> {
     }
   }
 
-  Future<void> _sendVoiceTextToBackend() async {
-    const String apiUrl = 'http://107.23.187.64:8000/api/ai-response/';
+  Future<void> _sendVoiceTextToBackend(String voiceText) async {
+    final response = await http.post(
+      Uri.parse('http://107.23.187.64:8000/api/ai-response/'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'voice_text': voiceText,  // 요청에 voice_text만 포함
+      }),
+    );
 
-    try {
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'voice_text': _text}),
-      );
+    if (response.statusCode == 200) {
+      // 응답을 디코드하여 데이터 처리
+      var responseData = json.decode(response.body);
+      // 응답에서 recommended_hotels 필드를 추출하여 hotelData에 저장
+      List<dynamic> hotelData = responseData['recommended_hotels'];
 
-      if (response.statusCode == 200) {
-        // 백엔드 응답이 성공적이면 hotel_ai.dart로 이동
-        final responseData = json.decode(response.body);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => HotelAiPage(hotelData: responseData),
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HotelAiPage(
+            hotelData: hotelData,
+            voiceText: voiceText,
           ),
-        );
-      } else {
-        print('Failed to send request: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error occurred: $e');
+        ),
+      );
+    } else {
+      throw Exception('Failed to load data');
     }
   }
 
@@ -202,7 +205,9 @@ class VoiceScreenState extends State<VoiceScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        onPressed: _sendVoiceTextToBackend, // 검색 버튼 동작
+                        onPressed: () {
+                          _sendVoiceTextToBackend(_searchController.text);
+                        }, // 검색 버튼 동작
                         child: const Text(
                           '검색',
                           style: TextStyle(

@@ -3,69 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'voice_screen.dart'; // VoiceScreen 임포트
 import 'review_screen.dart'; // ReviewScreen 임포트
+import 'time_screen.dart';
 
-class HotelAiPage extends StatefulWidget {
-  final dynamic hotelData;
-  const HotelAiPage({super.key, required this.hotelData});
+class HotelAiPage extends StatelessWidget {
+  final List<dynamic> hotelData; // API로 받아온 호텔 데이터
+  final String voiceText; // 음성 텍스트를 전달받음
 
-  @override
-  State<HotelAiPage> createState() => _HotelAiPageState();
-}
-
-class _HotelAiPageState extends State<HotelAiPage> {
-  int _selectedIndex = 4; // Search 아이콘 기본 선택
-  bool _isLoading = true;
-  List<Hotel> _hotelList = [];
-
-  void _onItemTapped(int index) {
-    if (index == 2) {
-      // Home 아이콘 클릭 시 VoiceScreen으로 이동
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const VoiceScreen()),
-      );
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    fetchHotelData();
-  }
-
-  Future<void> fetchHotelData() async {
-    try {
-      final response = await http.post(
-        Uri.parse('http://107.23.187.64:8000/api/ai-response/'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({}), // 필요하면 요청 바디 추가
-      );
-
-      if (response.statusCode == 200) {
-        List<dynamic> data =
-        jsonDecode(utf8.decode(response.bodyBytes))['recommended_hotels'];
-
-        setState(() {
-          _hotelList = data.map((json) => Hotel.fromJson(json)).toList();
-          _isLoading = false;
-        });
-      } else {
-        print('Failed to load hotels, status code: ${response.statusCode}');
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      print('Error occurred: $e');
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
+  const HotelAiPage({super.key, required this.hotelData, required this.voiceText});
 
   @override
   Widget build(BuildContext context) {
@@ -81,16 +25,18 @@ class _HotelAiPageState extends State<HotelAiPage> {
         backgroundColor: const Color(0xFFA8C6F1),
         centerTitle: false,  // 왼쪽 정렬
       ),
-
-      body: _isLoading
+      body: hotelData.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : Container(
         color: Colors.white,
         child: ListView.builder(
-          itemCount: _hotelList.length,
+          itemCount: hotelData.length,
           itemBuilder: (context, index) {
-            final hotel = _hotelList[index];
-            return HotelCard(hotel: hotel);
+            final hotel = Hotel.fromJson(hotelData[index]);
+            return HotelCard(
+              hotel: hotel,
+              onFavoriteChanged: () {},  // 기본적으로 빈 콜백 추가
+            );
           },
         ),
       ),
@@ -118,19 +64,80 @@ class _HotelAiPageState extends State<HotelAiPage> {
             label: 'Search',
           ),
         ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
+        onTap: (index) {
+          if (index == 2) {
+            // Home 아이콘 클릭 시 VoiceScreen으로 이동
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const VoiceScreen()),
+            );
+          }
+        },
       ),
     );
   }
 }
 
-class HotelCard extends StatelessWidget {
+class HotelCard extends StatefulWidget {
   final Hotel hotel;
+  final VoidCallback onFavoriteChanged; // 좋아요 상태 변경 콜백
 
-  const HotelCard({super.key, required this.hotel});
+  const HotelCard({
+    super.key,
+    required this.hotel,
+    required this.onFavoriteChanged,
+  });
+
+  @override
+  _HotelCardState createState() => _HotelCardState();
+}
+
+class _HotelCardState extends State<HotelCard> {
+  bool _isLiked = false;
+  bool _buttonPressed = false;
+
+  // 버튼 눌렀다 떼기
+  Future<void> _onLikePressed() async {
+    setState(() {
+      _buttonPressed = true;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://107.23.187.64:8000/api/like-accommodation/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "user_id": 1,
+          "accommodation_name": widget.hotel.name,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _isLiked = true;
+        });
+        showSnackBar(context, '북마크에 추가되었습니다!');
+      } else {
+        showSnackBar(context, '추가 실패');
+      }
+    } catch (e) {
+      showSnackBar(context, '네트워크 오류: $e');
+    }
+
+    // 버튼 눌렀다 떼는 효과 복구
+    Future.delayed(const Duration(milliseconds: 300), () {
+      setState(() {
+        _buttonPressed = false;
+        _isLiked = false; // 원상태로 복구
+      });
+    });
+  }
+
+  void showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +147,8 @@ class HotelCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ReviewScreen(accommodationName: hotel.name), // Hotel 객체를 ReviewScreen에 전달
+            builder: (context) =>
+                ReviewScreen(accommodationName: widget.hotel.name),
           ),
         );
       },
@@ -157,7 +165,7 @@ class HotelCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                hotel.name,
+                widget.hotel.name,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -166,7 +174,7 @@ class HotelCard extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                hotel.address,
+                widget.hotel.address,
                 style: const TextStyle(
                   color: Colors.white,
                   fontFamily: 'NanumGothic',
@@ -174,7 +182,7 @@ class HotelCard extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                '가격: ${hotel.price == 0 ? '가격 정보 없음' : '${hotel.price}원'}',
+                '가격: ${widget.hotel.price == 0 ? '가격 정보 없음' : widget.hotel.price.toString()}',
                 style: const TextStyle(
                   color: Color(0xFF163C9F),
                   fontFamily: 'NanumGothic',
@@ -185,31 +193,37 @@ class HotelCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '평점: ${hotel.ranks}',
+                    '평점: ${widget.hotel.ranks.toString()}',  // ranks를 String으로 변환
                     style: const TextStyle(fontFamily: 'NanumGothic'),
                   ),
                   Row(
                     children: [
-                      // 전화 버튼을 원형 버튼 안에 넣기
                       CircleAvatar(
                         radius: 25,
                         backgroundColor: const Color(0xFF163C9F),
                         child: IconButton(
-                          icon: const Icon(Icons.phone, color: Colors.white),
-                          onPressed: () {
-                            showSnackBar(context, '전화 버튼 클릭됨');
-                          },
+                          icon: Icon(
+                            Icons.favorite,
+                            color: _buttonPressed
+                                ? Colors.red
+                                : Colors.white, // 눌렀다 떼는 효과
+                          ),
+                          onPressed: _onLikePressed,
                         ),
                       ),
-                      const SizedBox(width: 10), // 버튼 간격
-                      // 지도 버튼을 원형 버튼 안에 넣기
+                      const SizedBox(width: 10),
                       CircleAvatar(
                         radius: 25,
                         backgroundColor: const Color(0xFF163C9F),
                         child: IconButton(
                           icon: const Icon(Icons.map, color: Colors.white),
                           onPressed: () {
-                            showSnackBar(context, '지도 버튼 클릭됨');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => TimeScreen(hotelName: widget.hotel.name),
+                              ),
+                            );
                           },
                         ),
                       ),
@@ -223,19 +237,14 @@ class HotelCard extends StatelessWidget {
       ),
     );
   }
-
-  void showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
 }
+
 
 class Hotel {
   final int id;
   final String name;
   final String address;
-  final int price;
+  final double price;  // 수정: double 타입으로 변경
   final String ranks;
 
   Hotel({
@@ -249,10 +258,26 @@ class Hotel {
   factory Hotel.fromJson(Map<String, dynamic> json) {
     return Hotel(
       id: json['id'],
-      name: json['name'],
-      address: json['address'],
-      price: json['price'],
-      ranks: json['ranks'],
+      name: utf8.decode(json['name'].runes.toList()),  // UTF-8 디코딩
+      address: utf8.decode(json['address'].runes.toList()),  // UTF-8 디코딩
+      price: json['price'] is String ? double.tryParse(json['price']) ?? 0.0 : json['price'].toDouble(),
+      ranks: json['ranks'].toString(),  // ranks를 String으로 변환
     );
+  }
+}
+
+Future<List<dynamic>> fetchHotelData() async {
+  try {
+    final response = await http.get(Uri.parse('http://107.23.187.64:8000/api/hotels/'));
+
+    if (response.statusCode == 200) {
+      // utf8로 응답 바디 디코딩
+      final decodedData = jsonDecode(utf8.decode(response.bodyBytes));
+      return decodedData['data'];
+    } else {
+      throw Exception('Failed to load hotel data');
+    }
+  } catch (e) {
+    throw Exception('Failed to load hotel data: $e');
   }
 }
