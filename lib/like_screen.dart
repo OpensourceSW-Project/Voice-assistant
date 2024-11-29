@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'voice_screen.dart';
 import 'hotel_all.dart';
+import 'time_screen.dart';  // TimeScreen을 추가
 
 class LikeScreen extends StatefulWidget {
   const LikeScreen({super.key});
@@ -73,9 +74,6 @@ class _LikeScreenState extends State<LikeScreen> {
     }
   }
 
-
-
-
   void _onItemTapped(int index) {
     setState(() {
       if (index == 1) { // Hotel 아이콘 클릭 시
@@ -92,17 +90,19 @@ class _LikeScreenState extends State<LikeScreen> {
     });
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Bookmarks',
-          style: TextStyle(color: Colors.white),
+          '북마크바',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black, // 텍스트 색상 검은색
+          ),
         ),
         backgroundColor: const Color(0xFFA8C6F1), // 상단 배경색 변경
-        centerTitle: true, // 제목을 중앙에 배치
+        centerTitle: false, // 제목을 왼쪽 정렬
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -136,26 +136,23 @@ class _LikeScreenState extends State<LikeScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 15.0),
                   child: Text(
-                    '₩${hotel.price}', // ₩ 기호를 직접 사용
+                    '가격: ${hotel.price}', // ₩ 기호를 직접 사용
                     style: const TextStyle(
                       color: Color(0xFF153C9F), // 가격 색상 변경
-                      fontSize: 18, // 가격 크기 키움
-                      fontWeight: FontWeight.bold, // 가격 굵은 글씨
+                      fontSize: 15, // 가격 굵은 글씨
                     ),
                   ),
                 ),
                 Padding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 15.0, vertical: 5.0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 15.0, vertical: 5.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.star, color: Color(0xFFFFEB3B)), // 별 아이콘 추가
-                          const SizedBox(width: 5), // 아이콘과 텍스트 사이의 간격
                           Text(
-                            '${hotel.ranks}',
+                            '평점: ${hotel.ranks}',
                             style: const TextStyle(
                               color: Colors.black, // 평점 텍스트는 검은색으로
                             ),
@@ -176,7 +173,15 @@ class _LikeScreenState extends State<LikeScreen> {
                           IconButton(
                             icon: const Icon(Icons.map, color: Color(0xFFFFFFFF)),
                             onPressed: () {
-                              // 지도 기능 미구현
+                              // 지도 버튼 클릭 시 hotelName을 TimeScreen으로 넘기며 이동
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => TimeScreen(
+                                    hotelName: hotel.name,
+                                  ),
+                                ),
+                              );
                             },
                           ),
                         ],
@@ -214,7 +219,7 @@ class _LikeScreenState extends State<LikeScreen> {
           ),
         ],
         currentIndex: 3,
-        selectedItemColor: Colors.blue,
+        selectedItemColor: Color(0xFF163C9F),
         unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
       ),

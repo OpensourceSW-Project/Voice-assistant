@@ -78,10 +78,15 @@ class _HotelAllPageState extends State<HotelAllPage> {
       appBar: AppBar(
         title: const Text(
           '목록',
-          style: TextStyle(fontFamily: 'NanumGothic'),
+          style: TextStyle(
+            fontFamily: 'NanumGothic',
+            fontWeight: FontWeight.bold,  // 볼드체로 설정
+            fontSize: 21,
+          ),
         ),
         backgroundColor: const Color(0xFFA8C6F1),
       ),
+
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Container(
@@ -122,7 +127,7 @@ class _HotelAllPageState extends State<HotelAllPage> {
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
+        selectedItemColor: Color(0xFF163C9F),
         unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
       ),
@@ -279,7 +284,6 @@ class _HotelCardState extends State<HotelCard> {
                           },
                         ),
                       ),
-
                     ],
                   ),
                 ],

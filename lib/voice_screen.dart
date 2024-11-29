@@ -4,6 +4,7 @@ import 'hotel_all.dart'; // hotel_all.dart 파일 추가
 import 'hotel_ai.dart'; // hotel_ai.dart 파일 추가
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'like_screen.dart'; // like_screen.dart 파일 추가
 
 class VoiceScreen extends StatefulWidget {
   const VoiceScreen({super.key});
@@ -60,6 +61,14 @@ class VoiceScreenState extends State<VoiceScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const HotelAllPage()),
+      );
+    }
+
+    // Favorites 아이콘을 눌렀을 때 like_screen.dart로 이동
+    if (index == 3) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const LikeScreen()),  // like_screen.dart로 이동
       );
     }
   }
@@ -250,7 +259,7 @@ class VoiceScreenState extends State<VoiceScreen> {
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
+        selectedItemColor: Color(0xFF153C9F),
         unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
       ),
