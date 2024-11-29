@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'voice_screen.dart';
 import 'hotel_all.dart';
-import 'time_screen.dart';  // TimeScreen을 추가
+import 'time_screen.dart'; // TimeScreen을 추가
 
 class LikeScreen extends StatefulWidget {
   const LikeScreen({super.key});
@@ -112,6 +112,7 @@ class _LikeScreenState extends State<LikeScreen> {
         itemCount: _likedHotels.length,
         itemBuilder: (context, index) {
           final hotel = _likedHotels[index];
+          double rating = double.tryParse(hotel.ranks) ?? 0.0; // 평점 값 처리
           return Card(
             color: const Color(0xFFA8D8E8),
             margin: const EdgeInsets.all(10),
@@ -123,7 +124,7 @@ class _LikeScreenState extends State<LikeScreen> {
                     hotel.name,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 22, // 호텔 이름 크기 키움
+                      fontSize: 18,
                     ),
                   ),
                   subtitle: Text(
@@ -136,7 +137,7 @@ class _LikeScreenState extends State<LikeScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 15.0),
                   child: Text(
-                    '가격: ${hotel.price}', // ₩ 기호를 직접 사용
+                    '${hotel.price}원~', // ₩ 기호를 직접 사용
                     style: const TextStyle(
                       color: Color(0xFF153C9F), // 가격 색상 변경
                       fontSize: 15, // 가격 굵은 글씨
@@ -151,10 +152,40 @@ class _LikeScreenState extends State<LikeScreen> {
                     children: [
                       Row(
                         children: [
+                          // 별 표시 및 평점
+                          Row(
+                            children: List.generate(
+                              5, // 별 5개
+                                  (index) {
+                                if (rating >= index + 1) {
+                                  return const Icon(
+                                    Icons.star,
+                                    color: Colors.yellow,
+                                    size: 20,
+                                  );
+                                } else if (rating > index) {
+                                  return const Icon(
+                                    Icons.star_half,
+                                    color: Colors.yellow,
+                                    size: 20,
+                                  );
+                                } else {
+                                  return const Icon(
+                                    Icons.star_border,
+                                    color: Colors.yellow,
+                                    size: 20,
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          // 평점 숫자 표시
                           Text(
-                            '평점: ${hotel.ranks}',
+                            '$rating',
                             style: const TextStyle(
-                              color: Colors.black, // 평점 텍스트는 검은색으로
+                              color: Colors.black,
+                              fontSize: 16,
                             ),
                           ),
                         ],

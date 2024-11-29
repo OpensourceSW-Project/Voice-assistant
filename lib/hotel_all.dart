@@ -181,7 +181,7 @@ class _HotelCardState extends State<HotelCard> {
       showSnackBar(context, '네트워크 오류: $e');
     }
 
-    // 버튼 눌렀다 떼기 효과 복구
+    // 버튼 눌렀다 떼는 효과 복구
     Future.delayed(const Duration(milliseconds: 300), () {
       setState(() {
         _buttonPressed = false;
@@ -239,7 +239,7 @@ class _HotelCardState extends State<HotelCard> {
               ),
               const SizedBox(height: 5),
               Text(
-                '가격: ${widget.hotel.price == 0 ? '가격 정보 없음' : '${widget.hotel.price}원'}',
+                '${widget.hotel.price == 0 ? '가격 정보 없음' : '${widget.hotel.price}원~'}',
                 style: const TextStyle(
                   color: Color(0xFF163C9F),
                   fontFamily: 'NanumGothic',
@@ -249,9 +249,31 @@ class _HotelCardState extends State<HotelCard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '평점: ${widget.hotel.ranks}',
-                    style: const TextStyle(fontFamily: 'NanumGothic'),
+                  Row(
+                    children: [
+                      // 별 아이콘을 생성하고 평점 숫자 추가
+                      Row(
+                        children: List.generate(5, (index) {
+                          return Icon(
+                            index < double.parse(widget.hotel.ranks)
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: Colors.amber,
+                            size: 18,
+                          );
+                        }),
+                      ),
+                      // 별 아이콘 옆에 평점 숫자 추가
+                      const SizedBox(width: 8),
+                      Text(
+                        widget.hotel.ranks,  // 평점 숫자 표시
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF000000),
+                          fontFamily: 'NanumGothic',
+                        ),
+                      ),
+                    ],
                   ),
                   Row(
                     children: [
@@ -317,7 +339,7 @@ class Hotel {
       name: json['name'],
       address: json['address'],
       price: json['price'],
-      ranks: json['ranks'],
+      ranks: json['ranks'].toString(), // 평점은 String으로 처리
     );
   }
 }

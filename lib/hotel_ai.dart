@@ -120,6 +120,7 @@ class HotelCard extends StatefulWidget {
   _HotelCardState createState() => _HotelCardState();
 }
 
+
 class _HotelCardState extends State<HotelCard> {
   bool _isLiked = false;
   bool _buttonPressed = false;
@@ -181,12 +182,12 @@ class _HotelCardState extends State<HotelCard> {
         );
       },
       child: Card(
-        color: const Color(0xFFFFFFFF),
+        color: Colors.white,  // 카드 배경색 하얀색으로 수정
         margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        elevation: 10,
+        elevation: 5,
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Column(
@@ -209,8 +210,9 @@ class _HotelCardState extends State<HotelCard> {
                 ),
               ),
               const SizedBox(height: 5),
+              // 가격 소수점 없이 출력되도록 수정
               Text(
-                '가격: ${widget.hotel.price == 0 ? '가격 정보 없음' : widget.hotel.price.toString()}',
+                '${widget.hotel.price == 0 ? '가격 정보 없음' : '${widget.hotel.price.toInt()}원~'}',
                 style: const TextStyle(
                   color: Color(0xFF163C9F),
                   fontFamily: 'NanumGothic',
@@ -220,9 +222,31 @@ class _HotelCardState extends State<HotelCard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '평점: ${widget.hotel.ranks.toString()}',  // ranks를 String으로 변환
-                    style: const TextStyle(fontFamily: 'NanumGothic'),
+                  Row(
+                    children: [
+                      // 별 아이콘을 생성하고 평점 숫자 추가
+                      Row(
+                        children: List.generate(5, (index) {
+                          return Icon(
+                            index < double.parse(widget.hotel.ranks)
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: Colors.amber,
+                            size: 18,
+                          );
+                        }),
+                      ),
+                      // 별 아이콘 옆에 평점 숫자 추가
+                      const SizedBox(width: 8),
+                      Text(
+                        widget.hotel.ranks,  // 평점 숫자 표시
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF000000),
+                          fontFamily: 'NanumGothic',
+                        ),
+                      ),
+                    ],
                   ),
                   Row(
                     children: [
@@ -266,6 +290,7 @@ class _HotelCardState extends State<HotelCard> {
     );
   }
 }
+
 
 class Hotel {
   final int id;

@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
+import 'hotel_all.dart';  // hotel_all.dart 임포트
+import 'voice_screen.dart';  // voice_screen.dart 임포트
+import 'like_screen.dart';  // like_screen.dart 임포트
 
 class TimeScreen extends StatefulWidget {
   final String hotelName;
@@ -16,6 +19,7 @@ class _TimeScreenState extends State<TimeScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _routeInfo;
   List<double>? userLocation;  // 사용자 위치를 담을 변수
+  int _selectedIndex = 0;  // BottomNavigationBar의 초기 선택 인덱스를 0으로 설정 (Map 아이콘)
 
   @override
   void initState() {
@@ -25,7 +29,6 @@ class _TimeScreenState extends State<TimeScreen> {
 
   // 사용자의 위치를 가져오는 함수
   Future<void> _getUserLocation() async {
-    // 위치 서비스가 활성화되어 있는지 확인
     bool serviceEnabled;
     LocationPermission permission;
 
@@ -35,10 +38,8 @@ class _TimeScreenState extends State<TimeScreen> {
       return;
     }
 
-    // 위치 권한 확인
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      // 권한이 거부된 경우 권한 요청
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         showSnackBar('위치 권한이 거부되었습니다.');
@@ -46,30 +47,28 @@ class _TimeScreenState extends State<TimeScreen> {
       }
     }
 
-    // 위치 권한이 승인되었으면 위치 정보 가져오기
     if (permission == LocationPermission.deniedForever) {
       showSnackBar('위치 권한이 영구히 거부되었습니다. 설정에서 권한을 수정해주세요.');
       return;
     }
 
     try {
-      // 위치 정보 가져오기
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
       setState(() {
-        userLocation = [position.latitude, position.longitude];  // 위치 정보 저장
+        userLocation = [position.latitude, position.longitude];
       });
 
-      fetchRouteData();  // 위치를 가져온 후, 경로 정보 요청
+      fetchRouteData();
     } catch (e) {
       showSnackBar('위치 정보를 가져오는 데 실패했습니다: $e');
     }
   }
 
   Future<void> fetchRouteData() async {
-    if (userLocation == null) return;  // 사용자의 위치가 없으면 요청하지 않음
+    if (userLocation == null) return;
 
     try {
       final response = await http.post(
@@ -106,11 +105,41 @@ class _TimeScreenState extends State<TimeScreen> {
     );
   }
 
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    // 네비게이션 로직
+    switch (index) {
+      case 1:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const HotelAllPage()),
+        );
+        break;
+      case 2:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const VoiceScreen()),
+        );
+        break;
+      case 3:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const LikeScreen()),
+        );
+        break;
+      default:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('호텔 지도: ${widget.hotelName}'),
+        title: Text('AITRAVEL'),
         backgroundColor: const Color(0xFFA8C6F1),
       ),
       body: Padding(
@@ -118,47 +147,110 @@ class _TimeScreenState extends State<TimeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 사용자의 위치와 호텔 이름 출력
             userLocation == null
                 ? const Center(child: CircularProgressIndicator())
-                : Text(
-              '사용자 위치: 위도 ${userLocation![0]}, 경도 ${userLocation![1]}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '호텔 이름: ${widget.hotelName}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const Divider(height: 30, color: Colors.grey),
-
-            // 데이터 로딩 중 상태 출력
-            _isLoading
+                : _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _routeInfo == null
                 ? const Text('데이터를 불러올 수 없습니다.')
                 : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '숙소 이름: ${_routeInfo!['name']}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                // 호텔 이름 가운데 정렬
+                Center(
+                  child: Text(
+                    widget.hotelName,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF163C9F),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                Text('주소: ${_routeInfo!['address']}'),
-                const SizedBox(height: 10),
-                Text('위도: ${_routeInfo!['latitude']}'),
-                Text('경도: ${_routeInfo!['longitude']}'),
-                const SizedBox(height: 10),
-                Text('대중교통 소요 시간: ${_routeInfo!['transit_time']}'),
-                Text('차량 소요 시간: ${_routeInfo!['car_time']}'),
+                const SizedBox(height: 16),
+
+                // 주소 앞에 지도 아이콘 추가
+                Row(
+                  children: [
+                    Icon(Icons.location_on, color: Color(0xFF828282)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '주소: ${_routeInfo!['address']}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Color(0xFF828282),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // 대중교통 소요시간 옆에 버스 아이콘 추가
+                Row(
+                  children: [
+                    Icon(Icons.directions_bus, color: Color(0xFF828282)),
+                    const SizedBox(width: 8),
+                    Text(
+                      '대중교통 소요시간: ${_routeInfo!['transit_time']}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFF828282),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // 차량 소요시간 옆에 차 아이콘 추가
+                Row(
+                  children: [
+                    Icon(Icons.directions_car, color: Color(0xFF828282)),
+                    const SizedBox(width: 8),
+                    Text(
+                      '차량 소요시간: ${_routeInfo!['car_time']}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFF828282),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
               ],
             ),
           ],
         ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map),
+            label: 'Map',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Hotel',
+          ),
+          BottomNavigationBarItem(
+            icon: FlutterLogo(size: 24),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.favorite),
+            label: 'Favorites',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: 'Search',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Color(0xFF163C9F),
+        unselectedItemColor: Colors.grey,
+        onTap: _onItemTapped,
       ),
     );
   }
