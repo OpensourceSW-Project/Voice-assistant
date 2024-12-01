@@ -8,7 +8,6 @@ from apps.models import Reservation, Accommodation, User, Review
 from django.core.paginator import Paginator, EmptyPage
 from datetime import datetime
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from decimal import Decimal
 import torch
 from geopy.distance import geodesic
 from sklearn.preprocessing import MinMaxScaler
@@ -38,7 +37,6 @@ class UserReservationInfo(APIView):
 
         serializer = ReservationSerializer(reservations, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
 
     # 유저 예약 생성
     def post(self, request):
