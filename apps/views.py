@@ -433,7 +433,7 @@ class AISet(APIView):
             print(f"Error updating weights: {e}")
             return default_weights
 
-# GPT 사용, 프롬포트 : AI코드와 내 백엔드 코드를 합쳐줘
+# GPT 사용, 프롬포트 : 이 코드와 내 백엔드 코드를 합쳐줘
 class RouteRecommendationAPIView(APIView):
     """
     경로 추천 API
