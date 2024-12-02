@@ -153,7 +153,6 @@ class _HotelCardState extends State<HotelCard> {
       showSnackBar(context, '네트워크 오류: $e');
     }
 
-    // 버튼 눌렀다 떼는 효과 복구
     Future.delayed(const Duration(milliseconds: 300), () {
       setState(() {
         _buttonPressed = false;
@@ -167,6 +166,7 @@ class _HotelCardState extends State<HotelCard> {
       SnackBar(content: Text(message)),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
